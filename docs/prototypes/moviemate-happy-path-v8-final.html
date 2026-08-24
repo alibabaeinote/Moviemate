@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MovieMate — Full Happy Path (Design System v8)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F1F0EC; --ink:#101012; --ink-secondary:#6E6E68;
+    --blue:#1F2FE3; --blue-dark:#1826B8; --lime:#CCE83B; --coral:#FF6A46;
+    --paper:#FFFFFF;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --s7:36px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #DCDBD3; min-height: 100vh; padding: var(--s7) var(--s4); }
+  .page-header { max-width: 400px; margin: 0 auto var(--s5); }
+  .page-title { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 16px; color: var(--ink); }
+  .page-sub { font-size: 11px; color: #83837C; margin-top: var(--s1); }
+  .wrap { max-width: 400px; margin: 0 auto; }
+
+  .flow-note { background: var(--paper); border: 1.5px solid var(--ink); border-radius: 16px; padding: var(--s4); margin-bottom: var(--s4); font-size: 11px; color: var(--ink-secondary); line-height: 1.6; }
+  .flow-note b { color: var(--ink); }
+
+  .phase-legend { display: flex; gap: var(--s4); margin-bottom: var(--s3); font-size: 10px; color: var(--ink-secondary); font-weight: 600; }
+  .phase-legend span { display: flex; align-items: center; gap: var(--s1); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .step-track { display: flex; gap: 3px; margin-bottom: var(--s3); }
+  .step-dot { flex: 1; height: 4px; border-radius: 999px; background: #D8D7CE; }
+  .step-dot.done { background: var(--blue); }
+  .step-dot.current { background: var(--lime); }
+  .step-dot.phase-sara.done { background: var(--coral); }
+  .step-dot.phase-sara.current { background: var(--lime); }
+
+  .persona-badge { display: inline-flex; align-items: center; gap: var(--s2); color: white; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 11px; padding: var(--s2) var(--s4); border-radius: 999px; margin-bottom: var(--s4); }
+  .persona-badge.ali { background: var(--blue); }
+  .persona-badge.sara { background: var(--coral); }
+  .persona-badge.both { background: var(--ink); }
+  .persona-av { width: 18px; height: 18px; border-radius: 50%; background: white; display:flex; align-items:center; justify-content:center; font-size: 9px; font-weight: 800; }
+  .persona-badge.ali .persona-av { color: var(--blue); }
+  .persona-badge.sara .persona-av { color: var(--coral); }
+  .persona-badge.both .persona-av { color: var(--ink); }
+
+  .frame { background: #0A0A0A; border-radius: 40px; padding: 12px; box-shadow: 0 16px 48px rgba(0,0,0,0.28); }
+  .card { background: var(--bg); border-radius: 28px; min-height: 730px; overflow-y: auto; padding: var(--s6) var(--s5) var(--s4); display: flex; flex-direction: column; }
+  .notch { width: 90px; height: 22px; background: #0A0A0A; border-radius: 0 0 16px 16px; margin: 0 auto 8px; }
+
+  .view { display: none; }
+  .view.active { display: flex; flex-direction: column; flex: 1; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+  .spacer { flex: 1; }
+
+  /* ===== Shared type styles per design system v8 ===== */
+  .mega-headline { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 46px; line-height: 0.96; letter-spacing: -0.5px; color: var(--ink); text-transform: uppercase; margin-bottom: var(--s6); }
+  .body-text { font-size: 14.5px; color: var(--ink-secondary); line-height: 1.55; margin-bottom: var(--s6); }
+  .body-text b { color: var(--ink); font-weight: 700; }
+
+  /* ===== Top row: avatars + logo mark ===== */
+  .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s6); }
+  .top-left { display: flex; align-items: center; gap: var(--s3); }
+  .avatars { display: flex; }
+  .av { width: 42px; height: 42px; border-radius: 50%; border: 2.5px solid var(--blue); overflow: hidden; background: linear-gradient(160deg,#c9a37e,#8a6a4d); box-shadow: 0 0 0 2px var(--bg); }
+  .av.s-ring { border-color: var(--coral); }
+  .av:last-child { margin-left: -14px; }
+  .top-label { font-size: 13.5px; color: var(--ink); line-height: 1.45; font-weight: 500; }
+  .top-label b { font-weight: 700; }
+  .logo-mark { width: 56px; height: 42px; position: relative; flex-shrink: 0; }
+  .logo-sq { position: absolute; width: 34px; height: 34px; border-radius: 10px; }
+  .logo-sq.blue { background: var(--blue); top: 0; left: 0; z-index: 1; }
+  .logo-sq.lime { background: var(--lime); bottom: 0; right: 0; z-index: 2; }
+  .logo-dot { position: absolute; width: 5px; height: 5px; background: white; border-radius: 1px; }
+  .logo-dot.d1 { top: 7px; left: 7px; z-index: 2; }
+  .logo-dot.d2 { bottom: 7px; right: 7px; z-index: 3; }
+  .logo-sparkle { position: absolute; top: 14px; left: 18px; width: 11px; height: 11px; background: white; z-index: 4; clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%); }
+
+  /* ===== Form fields ===== */
+  .field { margin-bottom: var(--s4); }
+  .field-label { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px; color: var(--ink-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: var(--s2); display: block; }
+  .field-input { width: 100%; border: 1.5px solid #D8D7CE; background: var(--paper); border-radius: 14px; padding: 13px 15px; font-size: 13px; color: var(--ink); }
+
+  /* ===== CTA / links ===== */
+  .cta-btn { width: 100%; background: var(--blue); color: white; border: none; border-radius: 999px; padding: 17px; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15.5px; cursor: pointer; transition: all 0.15s; }
+  .cta-btn:active { transform: scale(0.97); background: var(--blue-dark); }
+  .cta-btn.coral { background: var(--coral); }
+  .cta-btn.lime { background: var(--lime); color: var(--ink); }
+  .cta-btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
+  .cta-btn:disabled { opacity: 0.35; pointer-events: none; }
+  .reject-link { display: block; width: 100%; text-align: center; background: none; border: none; color: var(--blue); font-size: 14px; font-weight: 600; padding: var(--s4) 0 var(--s2); cursor: pointer; }
+
+  /* ===== Rating swipe ===== */
+  .rate-progress-row { display:flex; justify-content: space-between; align-items:center; margin-bottom: var(--s4); }
+  .rate-progress-label { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 12px; color: var(--ink); }
+  .rate-progress-count { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 14px; color: var(--blue); }
+  .rate-progress-track { height: 6px; border-radius: 999px; background: #E0DFD6; overflow: hidden; margin-bottom: var(--s5); }
+  .rate-progress-fill { height: 100%; background: var(--blue); border-radius: 999px; transition: width 0.3s ease; }
+  .swipe-card { flex: 1; border-radius: 22px; background: linear-gradient(160deg,#a5a59a,#6c6c63); display:flex; align-items:flex-end; padding: var(--s5); margin-bottom: var(--s4); min-height: 240px; transition: transform 0.25s ease, opacity 0.25s ease; }
+  .swipe-card.swiping-like { transform: translateX(60px) rotate(6deg); opacity: 0; }
+  .swipe-card.swiping-dislike { transform: translateX(-60px) rotate(-6deg); opacity: 0; }
+  .swipe-card-title { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; color: white; font-size: 24px; }
+  .swipe-card-meta { color: rgba(255,255,255,0.75); font-size: 11px; margin-top: 2px; font-weight: 500; }
+  .swipe-actions { display: flex; gap: var(--s3); }
+  .swipe-btn { flex: 1; padding: 14px; border-radius: 999px; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 12.5px; cursor: pointer; border: 1.5px solid var(--ink); background: var(--paper); color: var(--ink); transition: all 0.15s; }
+  .swipe-btn:active { transform: scale(0.95); }
+  .swipe-btn.like { background: var(--lime); }
+
+  /* ===== Invite code ===== */
+  .invite-code-box { background: var(--paper); border: 2px dashed var(--blue); border-radius: 18px; padding: var(--s5); text-align: center; margin-bottom: var(--s4); }
+  .invite-code-label { font-size: 10px; color: var(--ink-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: var(--s2); }
+  .invite-code { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 30px; color: var(--blue); letter-spacing: 3px; }
+
+  /* ===== Waiting ===== */
+  .waiting-icon { width: 56px; height: 56px; border-radius: 18px; background: var(--paper); border: 1.5px solid #E0DFD6; display: flex; align-items:center; justify-content:center; margin: 0 auto var(--s5); }
+  .pulse-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--coral); animation: pulseAnim 1.4s ease-in-out infinite; }
+  .pulse-dot.blue { background: var(--blue); }
+  @keyframes pulseAnim { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.4; } }
+
+  /* ===== Lock screen ===== */
+  .lockscreen { background: linear-gradient(160deg, #2a2f4a, #14141f); border-radius: 26px; min-height: 690px; padding: var(--s7) var(--s4); color: white; display:flex; flex-direction: column; margin: calc(var(--s6) * -1) calc(var(--s5) * -1) calc(var(--s4) * -1); }
+  .lock-time { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 52px; text-align: center; margin-bottom: var(--s2); }
+  .lock-date { text-align: center; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: var(--s7); font-weight: 500; }
+  .notif-card { background: rgba(255,255,255,0.12); backdrop-filter: blur(10px); border-radius: 18px; padding: var(--s4); display: flex; gap: var(--s3); align-items: flex-start; cursor: pointer; animation: slideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+  .notif-icon-wrap { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
+  .notif-icon-wrap .sq { position: absolute; width: 22px; height: 22px; border-radius: 7px; }
+  .notif-icon-wrap .sq.blue { background: var(--blue); top:0; left:0; z-index:2; }
+  .notif-icon-wrap .sq.lime { background: var(--lime); bottom:0; right:0; }
+  .notif-body { flex: 1; }
+  .notif-app { font-family: 'Inter', sans-serif; font-weight: 800; font-size: 10px; color: rgba(255,255,255,0.7); margin-bottom: var(--s1); }
+  .notif-text { font-size: 12px; line-height: 1.5; color: white; }
+
+  /* ===== Join code ===== */
+  .code-input-row { display: flex; gap: 6px; margin-bottom: var(--s4); }
+  .code-box { flex: 1; aspect-ratio: 1; border: 1.5px solid #D8D7CE; background: var(--paper); border-radius: 10px; display:flex; align-items:center; justify-content:center; font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 16px; color: var(--ink); }
+  .code-box.filled { border-color: var(--blue); background: #EEF0FD; color: var(--blue); }
+  .invite-preview { background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 16px; padding: var(--s4); display:flex; align-items:center; gap: var(--s3); margin-bottom: var(--s4); }
+  .invite-preview-av { width: 38px; height: 38px; border-radius: 50%; background: var(--blue); color:white; display:flex; align-items:center; justify-content:center; font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 14px; }
+  .invite-preview-text { font-size: 11px; color: var(--ink-secondary); }
+  .invite-preview-text b { color: var(--ink); font-weight: 700; font-size: 12px; display:block; margin-bottom: 2px; }
+
+  /* ===== Dual progress ===== */
+  .dual-progress-card { background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 16px; padding: var(--s3) var(--s4); margin-bottom: var(--s2); }
+  .dp-row { display:flex; justify-content: space-between; align-items:center; margin-bottom: var(--s2); }
+  .dp-name { font-weight: 700; font-size: 11px; color: var(--ink); }
+  .dp-count { font-size: 10px; color: var(--ink-secondary); }
+  .dp-track { height: 7px; border-radius: 999px; background: #E0DFD6; overflow: hidden; }
+  .dp-fill { height: 100%; border-radius: 999px; }
+  .check-circle { width: 56px; height: 56px; border-radius: 50%; background: var(--lime); display:flex; align-items:center; justify-content:center; margin: 0 auto var(--s4); }
+  .completion-title { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 30px; color: var(--ink); text-align:center; margin-bottom: var(--s2); }
+
+  /* ===== MATCH CARD (the reference component itself) ===== */
+  .hero-wrap { position: relative; }
+  .hero-img { width: 100%; aspect-ratio: 16/10; border-radius: 24px; overflow: hidden; background: linear-gradient(150deg, #d6d6ce 0%, #a5a59a 45%, #6c6c63 100%); position: relative; }
+  .hero-silhouettes { position: absolute; bottom: 0; left: 0; right: 0; height: 88%; display: flex; align-items: flex-end; justify-content: center; gap: 3%; opacity: 0.85; }
+  .silo { background: linear-gradient(180deg, #4a4a44, #2c2c28); border-radius: 40% 40% 0 0; }
+  .silo.s1 { width: 17%; height: 58%; } .silo.s2 { width: 22%; height: 84%; } .silo.s3 { width: 19%; height: 64%; }
+  .tag-row { display: flex; gap: var(--s2); margin-top: -18px; position: relative; z-index: 5; margin-bottom: var(--s6); padding: 0 2px; }
+  .tag-pill { display: flex; align-items: center; gap: var(--s2); padding: 9px 15px; border-radius: 999px; font-weight: 700; font-size: 12.5px; box-shadow: 0 3px 12px rgba(0,0,0,0.15); }
+  .tag-pill.blue { background: var(--blue); color: white; }
+  .tag-pill.lime { background: var(--lime); color: var(--ink); }
+  .tag-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+  .tag-pill.blue .tag-dot { background: #7B87F5; }
+  .tag-pill.lime .tag-dot { background: #101012; }
+  .film-title { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 30px; color: var(--ink); line-height: 1.0; letter-spacing: -0.2px; margin-bottom: var(--s2); }
+  .film-meta { font-size: 13px; color: var(--ink-secondary); font-weight: 500; margin-bottom: var(--s5); }
+  .film-meta .dot-sep { margin: 0 6px; opacity: 0.6; }
+  .stat-row { position: relative; display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s2); flex-wrap: wrap; }
+  .stat-number { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 38px; color: var(--blue); letter-spacing: -0.3px; }
+  .stat-desc { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 20px; color: var(--ink); }
+  .coral-dots { position: absolute; right: -2px; top: -12px; }
+  .stat-body { font-size: 13.5px; color: var(--ink); font-weight: 400; line-height: 1.5; margin-bottom: var(--s5); max-width: 88%; }
+
+  /* ===== Mutual commitment ===== */
+  .commit-tracker { background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 16px; padding: var(--s3); margin-bottom: var(--s4); display: flex; gap: var(--s2); }
+  .commit-person { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--s2); border-radius: 12px; }
+  .commit-person.confirmed { background: #EEF9D9; }
+  .commit-av { width: 36px; height: 36px; border-radius: 50%; display:flex; align-items:center; justify-content:center; color:white; font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 13px; position: relative; }
+  .commit-av.a { background: var(--blue); } .commit-av.s { background: var(--coral); }
+  .commit-check { position: absolute; bottom: -3px; right: -3px; width: 16px; height: 16px; border-radius: 50%; background: var(--lime); display:flex; align-items:center; justify-content:center; transform: scale(0); transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .commit-check.show { transform: scale(1); }
+  .commit-name { font-weight: 700; font-size: 10px; color: var(--ink); }
+  .commit-status { font-size: 9px; color: var(--ink-secondary); }
+  .commit-status.confirmed-text { color: #4a7a1a; font-weight: 700; }
+  .waiting-hint { text-align: center; font-size: 10px; color: var(--ink-secondary); margin-top: var(--s2); }
+
+  /* ===== Reminder ===== */
+  .reminder-icon { width: 56px; height: 56px; border-radius: 18px; background: var(--lime); display: flex; align-items:center; justify-content:center; margin: 0 auto var(--s4); }
+  .time-card { background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 16px; padding: var(--s4); text-align: center; margin-bottom: var(--s3); }
+  .time-card-label { font-size: 9px; color: var(--ink-secondary); font-weight: 700; text-transform: uppercase; margin-bottom: var(--s2); }
+  .time-card-value { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 22px; color: var(--blue); }
+  .manual-note { background: #FFF3EC; border: 1.5px solid var(--coral); border-radius: 14px; padding: var(--s3); margin-bottom: var(--s4); font-size: 11px; color: #8a4a2a; line-height: 1.5; }
+
+  /* ===== Transition ===== */
+  .transition-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; }
+  .settle-card { width: 170px; aspect-ratio: 16/10; border-radius: 22px; background: linear-gradient(160deg,#a5a59a,#6c6c63); margin-bottom: var(--s5); position: relative; transform: scale(0.85); opacity: 0; transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); display:flex; align-items:flex-end; justify-content:center; padding-bottom: var(--s3); }
+  .settle-card.settled { transform: scale(1); opacity: 1; }
+  .settle-card-label { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; color: white; font-size: 15px; }
+  .check-badge { position: absolute; top: -12px; right: -12px; width: 36px; height: 36px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; transform: scale(0); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s; }
+  .check-badge.show { transform: scale(1); }
+  .transition-title { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 26px; color: var(--ink); margin-bottom: var(--s2); opacity: 0; transform: translateY(8px); transition: all 0.4s ease 0.85s; }
+  .transition-title.show { opacity: 1; transform: translateY(0); }
+  .transition-sub { font-size: 12px; color: var(--ink-secondary); margin-bottom: var(--s5); opacity: 0; transition: all 0.4s ease 1.0s; }
+  .transition-sub.show { opacity: 1; }
+  .continue-btn { opacity: 0; transform: translateY(8px); transition: all 0.4s ease 1.15s; width: 100%; }
+  .continue-btn.show { opacity: 1; transform: translateY(0); }
+
+  /* ===== Taste Dial ===== */
+  .rate-header { text-align: center; margin-bottom: var(--s5); }
+  .rate-film-name { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 22px; color: var(--ink); }
+  .rate-film-sub { font-size: 11px; color: var(--ink-secondary); margin-top: var(--s1); }
+  .dial-display { text-align: center; margin-bottom: var(--s4); }
+  .dial-number { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 60px; line-height: 1; color: var(--blue); }
+  .dial-label { font-weight: 700; font-size: 14px; color: var(--ink); margin-top: var(--s2); }
+  .dial-track-wrap { padding: var(--s2) 0 var(--s4); }
+  .dial-track { position: relative; height: 11px; border-radius: 999px; background: #E0DFD6; }
+  .dial-fill { position: absolute; top:0; left:0; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--blue), var(--lime)); }
+  .dial-handle { position: absolute; top: 50%; width: 28px; height: 28px; border-radius: 50%; background: var(--paper); border: 3px solid var(--ink); transform: translate(-50%, -50%); box-shadow: 0 2px 8px rgba(0,0,0,0.15); pointer-events: none; }
+  .dial-input { position: absolute; top: -14px; left: 0; width: 100%; height: 40px; opacity: 0; cursor: pointer; margin: 0; }
+  .dial-bands { display: flex; justify-content: space-between; margin-top: var(--s2); font-size: 8px; color: var(--ink-secondary); font-weight: 700; text-transform: uppercase; }
+  .partner-marker-row { display: flex; align-items: center; gap: var(--s2); background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 14px; padding: var(--s3); margin-bottom: var(--s4); }
+  .partner-marker-av { width: 24px; height: 24px; border-radius: 50%; background: var(--coral); display:flex; align-items:center; justify-content:center; color:white; font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 10px; flex-shrink:0; }
+  .partner-marker-text { font-size: 11px; color: var(--ink-secondary); }
+  .partner-marker-text b { color: var(--ink); font-weight: 700; }
+
+  /* ===== Home teaser ===== */
+  .teaser-card { position: relative; border-radius: 20px; overflow: hidden; aspect-ratio: 16/9; margin-bottom: var(--s4); background: linear-gradient(160deg,#a5a59a,#6c6c63); filter: blur(7px) brightness(0.75); transform: scale(1.05); }
+  .teaser-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s2); }
+  .teaser-lock { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.9); display:flex; align-items:center; justify-content:center; }
+  .teaser-caption { font-weight: 800; font-size: 11px; color: white; letter-spacing: 0.5px; text-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+  .rated-summary { background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 14px; padding: var(--s3); margin-top: var(--s5); display: flex; align-items: center; gap: var(--s3); }
+  .rated-summary-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--lime); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .rated-summary-text { font-size: 11px; color: var(--ink-secondary); }
+  .rated-summary-text b { color: var(--ink); font-weight: 700; font-size: 12px; display:block; }
+
+  /* ===== Bottom nav — symmetric per locked spec ===== */
+  .bottom-nav-wrap { background: var(--paper); border-radius: 999px; padding: var(--s3) var(--s2); display: flex; align-items: stretch; justify-content: space-around; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: var(--s5); }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 8px 6px; border-radius: 16px; color: var(--ink); background: none; border: none; }
+  .nav-item.active { background: #E4E7FB; color: var(--blue); }
+  .nav-label { font-size: 11px; font-weight: 600; }
+
+  .restart-row { text-align: center; margin-top: var(--s3); }
+  .restart-link { font-size: 11px; color: var(--blue); font-weight: 700; cursor: pointer; background: none; border: none; }
+  .footer-note { text-align: center; margin-top: var(--s4); font-size: 11px; color: #83837C; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="page-title">MovieMate — Full Happy Path</div>
+  <div class="page-sub">Rebuilt entirely on Design System v8 (locked in ALI-76)</div>
+</div>
+
+<div class="wrap">
+  <div class="flow-note">
+    <b>Live demo:</b> one continuous walkthrough on the locked style — Big Shoulders Display + Inter, blue/lime/coral tokens, 4px spacing scale, symmetric bottom nav.
+  </div>
+
+  <div class="phase-legend">
+    <span><span class="legend-dot" style="background:var(--blue);"></span>Ali</span>
+    <span><span class="legend-dot" style="background:var(--coral);"></span>Sara</span>
+    <span><span class="legend-dot" style="background:var(--ink);"></span>Together</span>
+  </div>
+
+  <div class="step-track" id="stepTrack"></div>
+  <div class="persona-badge ali" id="personaBadge"><span class="persona-av" id="personaAv">A</span><span id="personaText">Ali's device</span></div>
+
+  <div class="frame">
+    <div class="notch"></div>
+    <div class="card" id="cardRoot">
+
+      <!-- ===== ALI PHASE ===== -->
+      <div class="view active" data-phase="ali">
+        <div class="spacer"></div>
+        <div style="text-align:center;">
+          <div class="logo-mark" style="margin: 0 auto var(--s5);">
+            <div class="logo-sq blue"></div><div class="logo-dot d1"></div><div class="logo-sparkle"></div>
+            <div class="logo-sq lime"></div><div class="logo-dot d2"></div>
+          </div>
+          <div class="mega-headline" style="font-size:38px;">MovieMate</div>
+          <div class="body-text" style="margin-bottom:0;">One match a day, picked for the two of you.</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="cta-btn" data-next>Get started</button>
+      </div>
+
+      <div class="view" data-phase="ali">
+        <div class="mega-headline" style="font-size:34px;">Create your<br>account</div>
+        <div class="body-text">Just Ali for now — you'll invite your partner in a bit.</div>
+        <div class="field"><label class="field-label">Name</label><input class="field-input" value="Ali" readonly></div>
+        <div class="field"><label class="field-label">Email</label><input class="field-input" value="ali@email.com" readonly></div>
+        <div class="field"><label class="field-label">Password</label><input class="field-input" type="password" value="••••••••" readonly></div>
+        <div class="spacer"></div>
+        <button class="cta-btn" data-next>Continue</button>
+      </div>
+
+      <div class="view" data-phase="ali">
+        <div class="rate-progress-row"><span class="rate-progress-label">Rate a few films</span><span class="rate-progress-count" id="aliCount">1 / 10</span></div>
+        <div class="rate-progress-track"><div class="rate-progress-fill" id="aliFill" style="width:10%;"></div></div>
+        <div class="swipe-card" id="aliCard"><div><div class="swipe-card-title" id="aliTitle">Dune</div><div class="swipe-card-meta" id="aliMeta">Sci-Fi · 2021</div></div></div>
+        <div class="swipe-actions">
+          <button class="swipe-btn" onclick="rateFilm('ali', false)">✕ Skip</button>
+          <button class="swipe-btn like" onclick="rateFilm('ali', true)">♥ Like</button>
+        </div>
+      </div>
+
+      <div class="view" data-phase="ali">
+        <div class="mega-headline" style="font-size:32px;">Invite your<br>partner</div>
+        <div class="body-text">Share this code with Sara so she can join and rate her own films.</div>
+        <div class="invite-code-box"><div class="invite-code-label">Your invite code</div><div class="invite-code">MVMT-247</div></div>
+        <div class="spacer"></div>
+        <button class="cta-btn" data-next>Share code with Sara</button>
+      </div>
+
+      <div class="view" data-phase="ali">
+        <div class="spacer"></div>
+        <div class="waiting-icon"><div class="pulse-dot"></div></div>
+        <div class="completion-title" style="font-size:24px;">Waiting on Sara</div>
+        <div class="body-text" style="text-align:center;">Once she joins with your code and rates a few films, we'll find your first match.</div>
+        <div class="spacer"></div>
+        <button class="cta-btn" data-next>Meanwhile, on Sara's phone →</button>
+      </div>
+
+      <!-- ===== SARA PHASE ===== -->
+      <div class="view" data-phase="sara" style="padding:0; margin: calc(var(--s6) * -1) calc(var(--s5) * -1) calc(var(--s4) * -1); flex:1;">
+        <div class="lockscreen">
+          <div class="lock-time">9:41</div>
+          <div class="lock-date">Sunday, August 24</div>
+          <div class="notif-card" data-next>
+            <div class="notif-icon-wrap"><div class="sq blue"></div><div class="sq lime"></div></div>
+            <div class="notif-body"><div class="notif-app">MOVIEMATE</div><div class="notif-text"><b>Ali</b> invited you to match on movies together. Tap to join.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" data-phase="sara">
+        <div class="mega-headline" style="font-size:34px;">Ali invited<br>you</div>
+        <div class="body-text">Enter the code Ali shared, or tap below if it's already filled in.</div>
+        <div class="code-input-row">
+          <div class="code-box filled">M</div><div class="code-box filled">V</div><div class="code-box filled">M</div><div class="code-box filled">T</div><div class="code-box filled">2</div><div class="code-box filled">4</div><div class="code-box filled">7</div>
+        </div>
+        <div class="invite-preview"><div class="invite-preview-av">A</div><div class="invite-preview-text"><b>Ali</b>wants to match movie taste with you</div></div>
+        <div class="spacer"></div>
+        <button class="cta-btn coral" data-next>Join Ali</button>
+      </div>
+
+      <div class="view" data-phase="sara">
+        <div class="rate-progress-row"><span class="rate-progress-label">Rate a few films</span><span class="rate-progress-count" id="saraCount">1 / 10</span></div>
+        <div class="rate-progress-track"><div class="rate-progress-fill" id="saraFill" style="width:10%; background:var(--coral);"></div></div>
+        <div class="swipe-card" id="saraCard"><div><div class="swipe-card-title" id="saraTitle">Past Lives</div><div class="swipe-card-meta" id="saraMeta">Romance · 2023</div></div></div>
+        <div class="swipe-actions">
+          <button class="swipe-btn" onclick="rateFilm('sara', false)">✕ Skip</button>
+          <button class="swipe-btn like" onclick="rateFilm('sara', true)">♥ Like</button>
+        </div>
+      </div>
+
+      <div class="view" data-phase="sara">
+        <div class="spacer"></div>
+        <div class="check-circle"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#101012" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div class="completion-title">You're all set</div>
+        <div class="body-text" style="text-align:center;">Both of you have rated your films. Your first match is on its way.</div>
+        <div class="dual-progress-card"><div class="dp-row"><span class="dp-name">Ali</span><span class="dp-count">10/10</span></div><div class="dp-track"><div class="dp-fill" style="width:100%; background:var(--blue);"></div></div></div>
+        <div class="dual-progress-card"><div class="dp-row"><span class="dp-name">Sara</span><span class="dp-count">10/10</span></div><div class="dp-track"><div class="dp-fill" style="width:100%; background:var(--coral);"></div></div></div>
+        <div class="spacer"></div>
+        <button class="cta-btn" data-next>See today's match →</button>
+      </div>
+
+      <!-- ===== TOGETHER — the reference match card itself ===== -->
+      <div class="view" data-phase="both">
+        <div class="top-row">
+          <div class="top-left">
+            <div class="avatars"><div class="av"></div><div class="av s-ring"></div></div>
+            <div class="top-label">Tonight's match<br><b>for Ali &amp; Sara</b></div>
+          </div>
+          <div class="logo-mark"><div class="logo-sq blue"></div><div class="logo-dot d1"></div><div class="logo-sparkle"></div><div class="logo-sq lime"></div><div class="logo-dot d2"></div></div>
+        </div>
+
+        <div class="hero-wrap">
+          <div class="hero-img"><div class="hero-silhouettes"><div class="silo s1"></div><div class="silo s2"></div><div class="silo s3"></div></div></div>
+        </div>
+        <div class="tag-row">
+          <span class="tag-pill blue"><span class="tag-dot"></span>Your cozy pick</span>
+          <span class="tag-pill lime"><span class="tag-dot"></span>Sara's pick</span>
+        </div>
+
+        <div class="film-title">Dune</div>
+        <div class="film-meta">2021<span class="dot-sep">·</span>Sci-Fi<span class="dot-sep">·</span>2h 35m</div>
+
+        <div class="stat-row">
+          <svg width="16" height="38" viewBox="0 0 16 38"><path d="M12 3 Q3 11 12 18" stroke="var(--lime)" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M12 22 Q3 29 12 36" stroke="var(--lime)" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+          <span class="stat-number">98%</span>
+          <span class="stat-desc">shared taste</span>
+          <svg class="coral-dots" width="42" height="46" viewBox="0 0 42 46"><circle cx="34" cy="4" r="3" fill="var(--coral)"/><circle cx="22" cy="13" r="3" fill="var(--coral)"/><circle cx="36" cy="20" r="3" fill="var(--coral)"/></svg>
+        </div>
+        <div class="stat-body">You both love sci-fi with deep, complex stories.</div>
+
+        <div class="commit-tracker">
+          <div class="commit-person" id="commitAli">
+            <div class="commit-av a">A<div class="commit-check" id="checkAli"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#101012" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div></div>
+            <div class="commit-name">Ali</div><div class="commit-status" id="statusAli">Not yet</div>
+          </div>
+          <div class="commit-person" id="commitSara">
+            <div class="commit-av s">S<div class="commit-check" id="checkSara"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#101012" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div></div>
+            <div class="commit-name">Sara</div><div class="commit-status" id="statusSara">Not yet</div>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div id="btnRow">
+          <button class="cta-btn" id="btnAli" onclick="confirmPerson('ali')">We're in (Ali)</button>
+          <button class="cta-btn coral" id="btnSara" style="margin-top:var(--s3);" onclick="confirmPerson('sara')">We're in (Sara)</button>
+        </div>
+        <div class="waiting-hint" id="waitHint">Both need to confirm before scheduling opens</div>
+        <button class="cta-btn" id="matchContinueBtn" style="display:none; margin-top:var(--s3);" data-next>Continue to scheduling</button>
+      </div>
+
+      <div class="view" data-phase="both">
+        <div class="spacer" style="flex:0.15;"></div>
+        <div class="reminder-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#101012" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></div>
+        <div class="completion-title">You're both set</div>
+        <div class="body-text" style="text-align:center;">We'll remind Ali &amp; Sara at the right time to watch Dune together.</div>
+        <div class="time-card"><div class="time-card-label">Suggested time</div><div class="time-card-value">Tonight, 8:30 PM</div></div>
+        <div class="manual-note">No calendar or streaming connection yet — once you've actually watched it, tap below to unlock rating.</div>
+        <div class="spacer"></div>
+        <button class="cta-btn lime" data-next>We watched it ✓</button>
+      </div>
+
+      <div class="view" data-phase="both">
+        <div class="transition-stage">
+          <div class="settle-card" id="settleCard"><div class="settle-card-label">DUNE</div><div class="check-badge" id="checkBadge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#101012" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div></div>
+          <div class="transition-title" id="transTitle">Nice one.</div>
+          <div class="transition-sub" id="transSub">Now tell us what you both thought.</div>
+          <button class="cta-btn continue-btn" id="transContinueBtn" data-next>Rate Dune</button>
+        </div>
+      </div>
+
+      <div class="view" data-phase="both">
+        <div class="rate-header"><div class="rate-film-name">Rate Dune</div><div class="rate-film-sub">Drag to set your score</div></div>
+        <div class="dial-display"><div class="dial-number" id="dialNumber">72</div><div class="dial-label" id="dialLabel">Really good</div></div>
+        <div class="dial-track-wrap">
+          <div class="dial-track">
+            <div class="dial-fill" id="dialFill" style="width:72%;"></div>
+            <div class="dial-handle" id="dialHandle" style="left:72%;"></div>
+            <input type="range" min="0" max="100" value="72" class="dial-input" id="dialInput">
+          </div>
+          <div class="dial-bands"><span>Not for us</span><span>Fine</span><span>Really good</span><span>Obsessed</span></div>
+        </div>
+        <div class="partner-marker-row"><div class="partner-marker-av">S</div><div class="partner-marker-text">Sara already rated this <b>85</b></div></div>
+        <div class="spacer"></div>
+        <button class="cta-btn" data-next>Submit rating</button>
+      </div>
+
+      <div class="view" data-phase="both">
+        <div class="mega-headline" style="font-size:32px;">See you<br>tomorrow</div>
+        <div class="teaser-card">
+          <div class="teaser-overlay">
+            <div class="teaser-lock"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#101012" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></div>
+            <div class="teaser-caption">TOMORROW'S PICK — HIDDEN</div>
+          </div>
+        </div>
+        <div class="body-text">A new match for Ali &amp; Sara unlocks at 9 AM. No peeking.</div>
+        <div class="rated-summary"><div class="rated-summary-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#101012" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><div class="rated-summary-text"><b>Dune — rated 72 / 85</b>Added to your watched history</div></div>
+        <div class="spacer"></div>
+        <div class="bottom-nav-wrap">
+          <button class="nav-item active"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.9L22 9.6l-5.3 4.9L18.2 22 12 18.1 5.8 22l1.5-7.5L2 9.6l7.1-0.7L12 2z"/></svg><span class="nav-label">Match</span></button>
+          <button class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="nav-label">Watchlist</span></button>
+          <button class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg><span class="nav-label">Us</span></button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="restart-row"><button class="restart-link" onclick="resetAll()">↺ Restart full demo</button></div>
+  <div class="footer-note">ALI-76 · ALI-77 · Complete happy path on locked Design System v8</div>
+</div>
+
+<script>
+  const views = Array.from(document.querySelectorAll('.view'));
+  let idx = 0;
+  const phaseLabel = { ali: "Ali's device", sara: "Sara's device", both: "Shared / both devices" };
+  const phaseAv = { ali: 'A', sara: 'S', both: 'A+S' };
+
+  function buildTrack() {
+    const track = document.getElementById('stepTrack');
+    track.innerHTML = '';
+    views.forEach(v => {
+      const dot = document.createElement('div');
+      dot.className = 'step-dot' + (v.dataset.phase === 'sara' ? ' phase-sara' : '');
+      track.appendChild(dot);
+    });
+  }
+
+  function render() {
+    views.forEach((v, i) => v.classList.toggle('active', i === idx));
+    const dots = document.querySelectorAll('.step-dot');
+    dots.forEach((d, i) => { d.classList.remove('done','current'); if (i < idx) d.classList.add('done'); else if (i === idx) d.classList.add('current'); });
+    const phase = views[idx].dataset.phase;
+    const badge = document.getElementById('personaBadge');
+    badge.className = 'persona-badge ' + phase;
+    document.getElementById('personaAv').textContent = phaseAv[phase];
+    document.getElementById('personaText').textContent = phaseLabel[phase];
+
+    if (views[idx].querySelector('#settleCard')) {
+      const settle = document.getElementById('settleCard');
+      settle.classList.remove('settled');
+      ['checkBadge','transTitle','transSub','transContinueBtn'].forEach(id => document.getElementById(id).classList.remove('show'));
+      requestAnimationFrame(() => {
+        setTimeout(() => settle.classList.add('settled'), 50);
+        setTimeout(() => document.getElementById('checkBadge').classList.add('show'), 500);
+        setTimeout(() => document.getElementById('transTitle').classList.add('show'), 850);
+        setTimeout(() => document.getElementById('transSub').classList.add('show'), 1000);
+        setTimeout(() => document.getElementById('transContinueBtn').classList.add('show'), 1150);
+      });
+    }
+  }
+
+  document.querySelectorAll('[data-next]').forEach(btn => btn.addEventListener('click', () => { idx = Math.min(idx + 1, views.length - 1); render(); }));
+
+  const aliFilms = [{title:"Dune",meta:"Sci-Fi · 2021"},{title:"The Holdovers",meta:"Comedy/Drama · 2023"},{title:"Oppenheimer",meta:"Biopic · 2023"},{title:"Parasite",meta:"Thriller · 2019"},{title:"Interstellar",meta:"Sci-Fi · 2014"},{title:"Whiplash",meta:"Drama · 2014"},{title:"Everything Everywhere",meta:"Sci-Fi/Comedy · 2022"},{title:"La La Land",meta:"Musical · 2016"},{title:"Decision to Leave",meta:"Mystery · 2022"},{title:"Past Lives",meta:"Romance · 2023"}];
+  const saraFilms = [{title:"Past Lives",meta:"Romance · 2023"},{title:"Little Women",meta:"Drama · 2019"},{title:"Lady Bird",meta:"Comedy/Drama · 2017"},{title:"The Holdovers",meta:"Comedy/Drama · 2023"},{title:"Parasite",meta:"Thriller · 2019"},{title:"Dune",meta:"Sci-Fi · 2021"},{title:"La La Land",meta:"Musical · 2016"},{title:"Interstellar",meta:"Sci-Fi · 2014"},{title:"Everything Everywhere",meta:"Sci-Fi/Comedy · 2022"},{title:"Decision to Leave",meta:"Mystery · 2022"}];
+  let aliRated = 0, saraRated = 0;
+
+  function rateFilm(who, liked) {
+    const cardId = who === 'ali' ? 'aliCard' : 'saraCard';
+    const card = document.getElementById(cardId);
+    card.classList.add(liked ? 'swiping-like' : 'swiping-dislike');
+    setTimeout(() => {
+      if (who === 'ali') {
+        aliRated++;
+        if (aliRated >= 10) { idx++; render(); return; }
+        document.getElementById('aliCount').textContent = (aliRated+1) + ' / 10';
+        document.getElementById('aliFill').style.width = ((aliRated+1)/10*100) + '%';
+        const f = aliFilms[aliRated % aliFilms.length];
+        document.getElementById('aliTitle').textContent = f.title;
+        document.getElementById('aliMeta').textContent = f.meta;
+      } else {
+        saraRated++;
+        if (saraRated >= 10) { idx++; render(); return; }
+        document.getElementById('saraCount').textContent = (saraRated+1) + ' / 10';
+        document.getElementById('saraFill').style.width = ((saraRated+1)/10*100) + '%';
+        const f = saraFilms[saraRated % saraFilms.length];
+        document.getElementById('saraTitle').textContent = f.title;
+        document.getElementById('saraMeta').textContent = f.meta;
+      }
+      card.classList.remove('swiping-like','swiping-dislike');
+    }, 220);
+  }
+
+  let aliConfirmed = false, saraConfirmed = false;
+  function confirmPerson(who) {
+    if (who === 'ali') {
+      aliConfirmed = true;
+      document.getElementById('commitAli').classList.add('confirmed');
+      document.getElementById('checkAli').classList.add('show');
+      document.getElementById('statusAli').textContent = 'Confirmed';
+      document.getElementById('statusAli').classList.add('confirmed-text');
+      document.getElementById('btnAli').disabled = true;
+    } else {
+      saraConfirmed = true;
+      document.getElementById('commitSara').classList.add('confirmed');
+      document.getElementById('checkSara').classList.add('show');
+      document.getElementById('statusSara').textContent = 'Confirmed';
+      document.getElementById('statusSara').classList.add('confirmed-text');
+      document.getElementById('btnSara').disabled = true;
+    }
+    if (aliConfirmed && saraConfirmed) {
+      document.getElementById('btnRow').style.display = 'none';
+      document.getElementById('waitHint').style.display = 'none';
+      document.getElementById('matchContinueBtn').style.display = 'block';
+    }
+  }
+
+  document.getElementById('dialInput').addEventListener('input', (e) => {
+    const v = e.target.value;
+    document.getElementById('dialNumber').textContent = v;
+    document.getElementById('dialFill').style.width = v + '%';
+    document.getElementById('dialHandle').style.left = v + '%';
+    document.getElementById('dialLabel').textContent = v <= 20 ? "Not for us" : v <= 50 ? "It was fine" : v <= 75 ? "Really good" : "Obsessed";
+  });
+
+  function resetAll() {
+    idx = 0; aliRated = 0; saraRated = 0; aliConfirmed = false; saraConfirmed = false;
+    document.getElementById('aliCount').textContent = '1 / 10';
+    document.getElementById('aliFill').style.width = '10%';
+    document.getElementById('aliTitle').textContent = aliFilms[0].title;
+    document.getElementById('aliMeta').textContent = aliFilms[0].meta;
+    document.getElementById('saraCount').textContent = '1 / 10';
+    document.getElementById('saraFill').style.width = '10%';
+    document.getElementById('saraTitle').textContent = saraFilms[0].title;
+    document.getElementById('saraMeta').textContent = saraFilms[0].meta;
+    document.getElementById('commitAli').classList.remove('confirmed');
+    document.getElementById('commitSara').classList.remove('confirmed');
+    document.getElementById('checkAli').classList.remove('show');
+    document.getElementById('checkSara').classList.remove('show');
+    document.getElementById('statusAli').textContent = 'Not yet';
+    document.getElementById('statusSara').textContent = 'Not yet';
+    document.getElementById('statusAli').classList.remove('confirmed-text');
+    document.getElementById('statusSara').classList.remove('confirmed-text');
+    document.getElementById('btnAli').disabled = false;
+    document.getElementById('btnSara').disabled = false;
+    document.getElementById('btnRow').style.display = 'block';
+    document.getElementById('waitHint').style.display = 'block';
+    document.getElementById('matchContinueBtn').style.display = 'none';
+    render();
+  }
+
+  buildTrack();
+  render();
+</script>
+
+</body>
+</html>

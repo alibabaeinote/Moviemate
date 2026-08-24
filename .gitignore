@@ -1,0 +1,39 @@
+# Node / Cloud Functions
+node_modules/
+functions/lib/
+functions/node_modules/
+*.log
+npm-debug.log*
+
+# Firebase
+.firebase/
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+serviceAccountKey.json
+
+# Secrets — never commit real keys
+.env
+.env.*
+!.env.example
+google-services.json
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+*.iml

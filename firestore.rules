@@ -1,0 +1,191 @@
+rules_version = '2';
+
+// MovieMate — Firestore Security Rules v2
+// Reference: docs/MovieMate-Backend-Schema.md §4, docs/MovieMate-Codex-Implementation-Brief.md Phase 1
+//
+// Core principles (unchanged from v1):
+//   1. A user can only reach the pair they belong to (userA or userB).
+//   2. commitStatus.userA is writable only by userA, commitStatus.userB only by userB.
+//   3. ratings are writable only by their owner.
+//   4. filmCache is written only by Cloud Functions; clients read.
+//   5. Taste Dial score is enforced to 0..100 at the rule level (never 1..5).
+//
+// Changes vs the v1 draft shipped with the design docs — see README §"Deviations":
+//   a. onlyChangedField() could not actually distinguish commitStatus.userA from
+//      commitStatus.userB: affectedKeys() only reports TOP-LEVEL keys, so both edits
+//      look like a single "commitStatus" change and either user could commit for both.
+//      Replaced with commitsOnlyForSelf(), which pins the *other* user's flag to its
+//      previous value.
+//   b. The v1 "general member updates" clause on /pairs let any member write any field,
+//      including aBothOnboarded and streakCount, which the schema doc requires to be
+//      server-owned. Client updates to /pairs are now closed; joining a pair goes
+//      through the joinPair callable so the invite code and its expiry are verified
+//      server-side.
+//   c. /users updates are field-whitelisted rather than blacklisted, so a new
+//      server-owned field cannot become client-writable by omission.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function pairData(pairId) {
+      return get(/databases/$(database)/documents/pairs/$(pairId)).data;
+    }
+
+    function isPairMember(p) {
+      return isSignedIn() && (request.auth.uid == p.userA || request.auth.uid == p.userB);
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ---------- users ----------
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.pairId == null
+        && request.resource.data.onboardingComplete == false
+        && request.resource.data.ratingCount == 0;
+
+      // Whitelist: everything else (pairId, onboardingComplete, ratingCount,
+      // emailVerified) is owned by Cloud Functions.
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && changedKeys().hasOnly([
+             'name',
+             'fcmTokens',
+             'fcmTokenUpdatedAt',
+             'notificationSettings',
+             'lastActiveAt',
+             'timezone'
+           ]);
+
+      // Account deletion runs through a Cloud Function so the partner's pair is
+      // cleaned up too.
+      allow delete: if false;
+    }
+
+    // ---------- pairs ----------
+    match /pairs/{pairId} {
+      allow read: if isPairMember(resource.data);
+
+      // Creating a pair: the creator must register themselves as userA, with no
+      // partner and no server-owned progress pre-filled.
+      allow create: if isSignedIn()
+        && request.resource.data.userA == request.auth.uid
+        && request.resource.data.userB == null
+        && request.resource.data.aBothOnboarded == false
+        && request.resource.data.streakCount == 0;
+
+      // Joining, streaks, aBothOnboarded and lastMatchGeneratedAt are all
+      // server-owned — see joinPair / onRatingComplete / generateDailyMatch.
+      allow update: if false;
+      allow delete: if false;
+
+      // ---------- pairs/{pairId}/ratings ----------
+      // Convention: document id is "{userId}_{filmId}" so a repeat rating is an
+      // update rather than a duplicate row (ALI-73 "Duplicate Rating").
+      match /ratings/{ratingId} {
+        allow read: if isPairMember(pairData(pairId));
+
+        allow create: if isPairMember(pairData(pairId))
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.score is number
+          && request.resource.data.score >= 0
+          && request.resource.data.score <= 100;
+
+        allow update: if isPairMember(pairData(pairId))
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.score is number
+          && request.resource.data.score >= 0
+          && request.resource.data.score <= 100;
+
+        allow delete: if false;
+      }
+
+      // ---------- pairs/{pairId}/matches ----------
+      match /matches/{matchId} {
+        allow read: if isPairMember(pairData(pairId));
+
+        // Matches are produced by generateDailyMatch only.
+        allow create: if false;
+
+        // A member may flip their own commit flag, or record the manual
+        // "we watched it" confirmation. bothConfirmedAt, score, status and
+        // attemptNumber stay server-owned.
+        allow update: if isPairMember(pairData(pairId)) && (
+          commitsOnlyForSelf(pairData(pairId)) ||
+          confirmsWatchedOnly()
+        );
+
+        allow delete: if false;
+      }
+
+      // ---------- pairs/{pairId}/watchlist ----------
+      match /watchlist/{itemId} {
+        allow read: if isPairMember(pairData(pairId));
+
+        allow create: if isPairMember(pairData(pairId))
+          && request.resource.data.addedBy == request.auth.uid
+          && request.resource.data.status == 'waiting'
+          && request.resource.data.watchedAt == null
+          && request.resource.data.mutualScore == null;
+
+        // "I'm in too" from inside the list — same self-only commit guarantee as
+        // matches. status/mutualScore/watchedAt are set by onCommitUpdate.
+        allow update: if isPairMember(pairData(pairId))
+          && commitsOnlyForSelf(pairData(pairId));
+
+        // Either member can remove a film from the shared list.
+        allow delete: if isPairMember(pairData(pairId));
+      }
+    }
+
+    // ---------- filmCache ----------
+    match /filmCache/{filmId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Admin SDK bypasses rules, so this means "clients never".
+    }
+
+    // ---------- notificationLog (frequency caps) ----------
+    // Written by sendNotification; never readable or writable by clients.
+    match /notificationLog/{entryId} {
+      allow read, write: if false;
+    }
+
+    // ---------- Commit helpers ----------
+    // The caller may only raise their OWN commit flag; the partner's flag must be
+    // byte-identical to what was already stored. This is what stops one person
+    // confirming a mutual commitment on their own (PRD §7.2).
+    function commitsOnlyForSelf(p) {
+      return changedKeys().hasOnly(['commitStatus'])
+        && request.resource.data.commitStatus.userA is bool
+        && request.resource.data.commitStatus.userB is bool
+        && (
+          (
+            request.auth.uid == p.userA &&
+            request.resource.data.commitStatus.userB == resource.data.commitStatus.userB
+          ) || (
+            request.auth.uid == p.userB &&
+            request.resource.data.commitStatus.userA == resource.data.commitStatus.userA
+          )
+        );
+    }
+
+    // Manual "We watched it" — explicitly manual, never inferred (PRD §10).
+    function confirmsWatchedOnly() {
+      return changedKeys().hasOnly(['watchedConfirmedAt'])
+        && resource.data.watchedConfirmedAt == null
+        && request.resource.data.watchedConfirmedAt == request.time;
+    }
+  }
+}

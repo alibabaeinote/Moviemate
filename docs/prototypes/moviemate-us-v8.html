@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MovieMate — Us (Design System v8)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F1F0EC; --ink:#101012; --ink-secondary:#6E6E68;
+    --blue:#1F2FE3; --blue-dark:#1826B8; --lime:#CCE83B; --coral:#FF6A46;
+    --paper:#FFFFFF;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --s7:36px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #DCDBD3; min-height: 100vh; padding: var(--s7) var(--s4); }
+  .page-header { max-width: 400px; margin: 0 auto var(--s5); }
+  .page-title { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 16px; color: var(--ink); }
+  .page-sub { font-size: 11px; color: #83837C; margin-top: var(--s1); }
+  .wrap { max-width: 400px; margin: 0 auto; }
+
+  .flow-note { background: var(--paper); border: 1.5px solid var(--ink); border-radius: 16px; padding: var(--s4); margin-bottom: var(--s4); font-size: 11px; color: var(--ink-secondary); line-height: 1.6; }
+  .flow-note b { color: var(--ink); }
+
+  .frame { background: #0A0A0A; border-radius: 40px; padding: 12px; box-shadow: 0 16px 48px rgba(0,0,0,0.28); }
+  .notch { width: 90px; height: 22px; background: #0A0A0A; border-radius: 0 0 16px 16px; margin: 0 auto 8px; }
+  .card { background: var(--bg); border-radius: 28px; height: 730px; overflow-y: auto; padding: var(--s6) var(--s5) var(--s4); }
+
+  .mega-headline { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 40px; line-height: 0.96; letter-spacing: -0.5px; color: var(--ink); margin-bottom: var(--s5); }
+
+  /* Shared profile hero */
+  .profile-hero { background: var(--ink); border-radius: 22px; padding: var(--s5); margin-bottom: var(--s5); text-align: center; position: relative; overflow: hidden; }
+  .profile-avatars { display: flex; justify-content: center; margin-bottom: var(--s3); }
+  .profile-av { width: 54px; height: 54px; border-radius: 50%; border: 3px solid var(--paper); overflow: hidden; background: linear-gradient(160deg,#c9a37e,#8a6a4d); }
+  .profile-av.s { background: linear-gradient(160deg,#7a8fd0,#3d4f9e); }
+  .profile-av:first-child { margin-right: -16px; z-index: 2; }
+  .profile-names { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 24px; color: white; margin-bottom: 2px; }
+  .profile-since { font-size: 11px; color: rgba(255,255,255,0.5); font-weight: 500; }
+  .profile-glow { position: absolute; width: 140px; height: 140px; background: var(--lime); opacity: 0.15; border-radius: 50%; top: -60px; right: -40px; }
+
+  /* Stat grid */
+  .stat-grid { display: flex; gap: var(--s3); margin-bottom: var(--s6); }
+  .stat-box { flex: 1; background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 18px; padding: var(--s4) var(--s3); text-align: center; }
+  .stat-box-num { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 28px; color: var(--blue); line-height: 1; }
+  .stat-box-label { font-size: 10px; color: var(--ink-secondary); font-weight: 600; margin-top: var(--s1); text-transform: uppercase; letter-spacing: 0.3px; }
+
+  /* Streak card */
+  .streak-card { display: flex; align-items: center; gap: var(--s3); background: #FFF3D9; border: 1.5px solid var(--lime); border-radius: 18px; padding: var(--s4); margin-bottom: var(--s6); }
+  .streak-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--lime); display:flex; align-items:center; justify-content:center; flex-shrink: 0; font-size: 18px; }
+  .streak-text-title { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 16px; color: var(--ink); }
+  .streak-text-sub { font-size: 11px; color: var(--ink-secondary); font-weight: 500; }
+
+  /* Section header */
+  .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--s4); }
+  .section-title { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 20px; color: var(--ink); }
+  .section-hint { font-size: 10.5px; color: var(--ink-secondary); font-weight: 500; }
+
+  /* Journey chart */
+  .journey-card { background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 20px; padding: var(--s5); margin-bottom: var(--s6); }
+  .journey-row { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s4); }
+  .journey-row:last-child { margin-bottom: 0; }
+  .journey-week { font-size: 10.5px; font-weight: 700; color: var(--ink-secondary); width: 46px; flex-shrink: 0; }
+  .journey-track { flex: 1; height: 10px; border-radius: 999px; background: #EDECE6; overflow: hidden; }
+  .journey-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--blue), var(--lime)); }
+  .journey-count { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 14px; color: var(--ink); width: 28px; text-align: right; flex-shrink: 0; }
+
+  /* Taste compatibility */
+  .compat-card { background: var(--ink); border-radius: 20px; padding: var(--s5); margin-bottom: var(--s6); position: relative; overflow: hidden; }
+  .compat-label { font-size: 10.5px; color: rgba(255,255,255,0.5); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: var(--s2); }
+  .compat-number { font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 46px; color: var(--lime); line-height: 1; margin-bottom: var(--s2); }
+  .compat-desc { font-size: 12.5px; color: rgba(255,255,255,0.7); font-weight: 400; line-height: 1.5; }
+  .compat-genres { display: flex; gap: var(--s2); margin-top: var(--s4); flex-wrap: wrap; }
+  .genre-chip { background: rgba(255,255,255,0.1); color: white; font-size: 10.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px; }
+
+  /* Settings list */
+  .settings-list { background: var(--paper); border: 1.5px solid #E0DFD6; border-radius: 20px; overflow: hidden; margin-bottom: var(--s5); }
+  .settings-row { display: flex; align-items: center; gap: var(--s3); padding: var(--s4); border-bottom: 1.5px solid #F0F0EA; cursor: pointer; }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row:active { background: var(--bg); }
+  .settings-icon { width: 34px; height: 34px; border-radius: 10px; background: var(--bg); display:flex; align-items:center; justify-content:center; flex-shrink: 0; color: var(--ink); }
+  .settings-text { flex: 1; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 13px; color: var(--ink); }
+  .settings-sub { font-size: 10.5px; color: var(--ink-secondary); font-weight: 400; margin-top: 1px; }
+  .settings-chevron { color: var(--ink-secondary); }
+
+  /* Bottom nav — symmetric, per locked spec */
+  .bottom-nav-wrap { background: var(--paper); border-radius: 999px; padding: var(--s3) var(--s2); display: flex; align-items: stretch; justify-content: space-around; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: var(--s5); position: sticky; bottom: 0; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 8px 6px; border-radius: 16px; color: var(--ink); background: none; border: none; }
+  .nav-item.active { background: #E4E7FB; color: var(--blue); }
+  .nav-label { font-size: 11px; font-weight: 600; }
+
+  .footer-note { text-align: center; margin-top: var(--s4); font-size: 11px; color: #83837C; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="page-title">MovieMate — Us</div>
+  <div class="page-sub">Third tab, on locked Design System v8 — ALI-74 / ALI-76</div>
+</div>
+
+<div class="wrap">
+  <div class="flow-note">
+    <b>What lives here:</b> shared profile, streak, taste journey over time, compatibility snapshot, and account/invite settings — everything that isn't a single day's match or the list.
+  </div>
+
+  <div class="frame">
+    <div class="notch"></div>
+    <div class="card">
+
+      <div class="mega-headline">Us</div>
+
+      <div class="profile-hero">
+        <div class="profile-glow"></div>
+        <div class="profile-avatars">
+          <div class="profile-av"></div>
+          <div class="profile-av s"></div>
+        </div>
+        <div class="profile-names">Ali &amp; Sara</div>
+        <div class="profile-since">Matching since Jul 2026</div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-box-num">12</div><div class="stat-box-label">Both confirmed</div></div>
+        <div class="stat-box"><div class="stat-box-num">9</div><div class="stat-box-label">Watched</div></div>
+        <div class="stat-box"><div class="stat-box-num">81</div><div class="stat-box-label">Avg score</div></div>
+      </div>
+
+      <div class="streak-card">
+        <div class="streak-icon">🔥</div>
+        <div>
+          <div class="streak-text-title">8-day streak</div>
+          <div class="streak-text-sub">Both of you rated every day this week</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-title">Your journey</span>
+        <span class="section-hint">matches per week</span>
+      </div>
+      <div class="journey-card">
+        <div class="journey-row">
+          <span class="journey-week">Week 1</span>
+          <div class="journey-track"><div class="journey-fill" style="width:8%;"></div></div>
+          <span class="journey-count">0</span>
+        </div>
+        <div class="journey-row">
+          <span class="journey-week">Week 2</span>
+          <div class="journey-track"><div class="journey-fill" style="width:35%;"></div></div>
+          <span class="journey-count">2</span>
+        </div>
+        <div class="journey-row">
+          <span class="journey-week">Week 3</span>
+          <div class="journey-track"><div class="journey-fill" style="width:68%;"></div></div>
+          <span class="journey-count">5</span>
+        </div>
+        <div class="journey-row">
+          <span class="journey-week">Week 4</span>
+          <div class="journey-track"><div class="journey-fill" style="width:90%;"></div></div>
+          <span class="journey-count">5</span>
+        </div>
+      </div>
+
+      <div class="compat-card">
+        <div class="compat-label">Taste compatibility</div>
+        <div class="compat-number">86%</div>
+        <div class="compat-desc">You're getting closer — up from 71% when you started.</div>
+        <div class="compat-genres">
+          <span class="genre-chip">Sci-Fi</span>
+          <span class="genre-chip">Drama</span>
+          <span class="genre-chip">Mystery</span>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-title">Settings</span>
+      </div>
+      <div class="settings-list">
+        <div class="settings-row">
+          <div class="settings-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z"/></svg></div>
+          <div class="settings-text">Invite code<div class="settings-sub">MVMT-247 · share again</div></div>
+          <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg></div>
+          <div class="settings-text">Notifications<div class="settings-sub">Daily match, partner activity</div></div>
+          <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+          <div class="settings-text">About TMDB<div class="settings-sub">Data &amp; attribution</div></div>
+          <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+
+      <div class="bottom-nav-wrap">
+        <button class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.9L22 9.6l-5.3 4.9L18.2 22 12 18.1 5.8 22l1.5-7.5L2 9.6l7.1-0.7L12 2z"/></svg><span class="nav-label">Match</span></button>
+        <button class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="nav-label">Watchlist</span></button>
+        <button class="nav-item active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg><span class="nav-label">Us</span></button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer-note">ALI-74 · Us — on locked Design System v8</div>
+</div>
+
+</body>
+</html>

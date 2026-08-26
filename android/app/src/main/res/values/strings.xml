@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MovieMate</string>
+
+    <!--
+      TMDB attribution is a licence requirement, not a nicety. It must stay
+      visible on the About screen for as long as the app shows TMDB data.
+    -->
+    <string name="tmdb_attribution">This product uses the TMDB API but is not endorsed or certified by TMDB.</string>
+</resources>

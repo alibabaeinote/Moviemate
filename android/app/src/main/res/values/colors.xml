@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors ui/theme/Color.kt for the places XML needs them (notifications, splash). -->
+    <color name="moviemate_blue">#1F2FE3</color>
+    <color name="moviemate_ink">#101012</color>
+    <color name="moviemate_background">#F1F0EC</color>
+</resources>

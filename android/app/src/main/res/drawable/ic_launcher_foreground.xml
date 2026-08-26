@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Logomark from Design System v8 §5: two overlapping rounded squares (blue
+  top-left, lime bottom-right) with a white star where they meet.
+
+  Adaptive icons crop to a safe zone of the middle 66dp of 108dp, so the mark
+  is drawn well inside that.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1F2FE3"
+        android:pathData="M32,32h30a6,6 0,0 1,6 6v30a6,6 0,0 1,-6 6H32a6,6 0,0 1,-6 -6V38a6,6 0,0 1,6 -6z" />
+    <path
+        android:fillColor="#CCE83B"
+        android:pathData="M46,46h30a6,6 0,0 1,6 6v30a6,6 0,0 1,-6 6H46a6,6 0,0 1,-6 -6V52a6,6 0,0 1,6 -6z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,48l2.2,5.8L62,56l-5.8,2.2L54,64l-2.2,-5.8L46,56l5.8,-2.2z" />
+</vector>

@@ -42,6 +42,7 @@ export const createPair = onCall<{ timezone?: string }>(async (request) => {
       aBothOnboarded: false,
       streakCount: 0,
       lastMatchGeneratedAt: null,
+      lastWatchAt: null,
       timezone,
     };
 

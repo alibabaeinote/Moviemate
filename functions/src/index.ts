@@ -15,6 +15,9 @@ setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 export { createPair } from "./callable/createPair";
 export { joinPair } from "./callable/joinPair";
 
+// Onboarding content
+export { listGenres, getOnboardingFilms } from "./callable/onboardingFilms";
+
 // Daily match lifecycle
 export { generateDailyMatch } from "./scheduled/generateDailyMatch";
 export { rejectMatch } from "./callable/rejectMatch";
@@ -22,7 +25,8 @@ export { scheduleWatch } from "./callable/scheduleWatch";
 
 // Firestore triggers
 export { onRatingComplete } from "./triggers/onRatingComplete";
-export { onCommitUpdate, onWatchlistCommitUpdate } from "./triggers/onCommitUpdate";
+export { onMatchUpdate } from "./triggers/onMatchUpdate";
+export { onWatchlistUpdate } from "./triggers/onWatchlistUpdate";
 export { onWatchlistAdd } from "./triggers/onWatchlistAdd";
 
 // Scheduled maintenance

@@ -41,6 +41,8 @@ export interface PairDoc {
   aBothOnboarded: boolean;
   streakCount: number;
   lastMatchGeneratedAt: Timestamp | null;
+  /** When the streak last advanced. Distinct from lastMatchGeneratedAt. */
+  lastWatchAt: Timestamp | null;
   /** Copied from the creator so the scheduler can run at each pair's local 9am. */
   timezone: string;
 }

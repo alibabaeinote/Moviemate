@@ -18,9 +18,9 @@ is the source of truth; this README says what has actually been built.
 | Layer | State |
 |---|---|
 | Firestore schema + security rules | Written, **not yet deployed or emulator-tested** |
-| Recommendation engine | Implemented, 42 unit tests passing |
+| Recommendation engine | Implemented, unit tested |
 | TMDB client + 6-month cache | Implemented, not yet run against the live API |
-| Cloud Functions (11) | Implemented, TypeScript compiles clean, **not deployed** |
+| Cloud Functions (14) | Implemented, TypeScript compiles clean, **not deployed** |
 | Notification layer (7 types) | Implemented, caps unit-tested, **no real device test** |
 | Android design system | Tokens, type scale and core components written |
 | Android auth screens | Sign up / sign in / forgot password wired to Firebase Auth |
@@ -92,7 +92,7 @@ None of this can be scripted; it needs console access.
 ```bash
 cd functions
 npm install
-npm test          # 42 unit tests, no emulator needed
+npm test          # 66 unit tests, no emulator needed
 npm run build
 
 cp .env.example .env                      # local emulator only
@@ -190,7 +190,23 @@ server-owned. Joining now goes through the `joinPair` callable, so the invite
 code, its 7-day expiry and the "seat still free" check all happen in one
 transaction.
 
-### 4. Fields added that the docs do not mention
+### 4. The streak rule is a reinterpretation, not an implementation
+
+The schema doc defines `streakCount` as "روزهای متوالی rating مشترک" —
+*consecutive days* of shared rating. But the PRD's own target user watches
+together "1-2 times a week" (§2). A strict consecutive-day streak would reset
+for essentially every real user, so the Us screen's headline number would sit
+at 1 forever.
+
+The implementation therefore uses a **7-day grace window**: the streak survives
+as long as the pair keeps up the habit the PRD describes, and breaks when they
+genuinely lapse. It also counts *completed watches*, not app opens — rewarding
+the habit of checking a phone is not the point — and at most once per local day.
+
+The window is `PRODUCT_CONFIG.streakGraceDays`; set it to 1 for the literal
+reading. **This needs product sign-off.**
+
+### 5. Fields added that the docs do not mention
 
 - `users.timezone` and `pairs.timezone` — the daily match is specified as "9am
   local to each pair", which is not computable without one. The scheduler runs
@@ -202,8 +218,17 @@ transaction.
 - `matches.scheduledFor` / `reminderSent` — the docs describe a suggested time
   and a 15-minute reminder but never say where the time is stored.
 - `notificationLog` — frequency caps need a record of what was sent when.
+- `pairs.lastWatchAt` — the streak needs to know when it last advanced, which is
+  not the same as `lastMatchGeneratedAt`.
 
-### 5. Ratings use a deterministic document id
+### 6. `onCommitUpdate` became `onMatchUpdate`
+
+The schema doc lists `onCommitUpdate` and implies separate handlers per
+transition. Commit, mutual confirmation and "watched" all write back to the same
+match document, so separate functions would each re-fire on the others' writes.
+They are one handler that dispatches on before→after edges instead.
+
+### 7. Ratings use a deterministic document id
 
 `pairs/{pairId}/ratings/{userId}_{filmId}`. Re-rating a film becomes an update
 rather than a second row, which handles the documented "Duplicate Rating" case
@@ -252,9 +277,10 @@ Things that will quietly break the product if changed without thought:
 cd functions && npm test
 ```
 
-42 tests, covering the scoring engine (including the divergence penalty and the
+66 tests, covering the scoring engine (including the divergence penalty and the
 no-match threshold), reason-text generation, the notification frequency caps,
-and per-pair local-time scheduling across timezone boundaries.
+per-pair local-time scheduling across timezone boundaries, streak advance/reset
+rules, mutual-score computation, and the onboarding deck's era spread.
 
 There are no Android tests yet, and no emulator tests of the security rules —
 the rules changes above are the first thing that deserve them.

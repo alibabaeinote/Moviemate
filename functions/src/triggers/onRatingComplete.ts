@@ -6,7 +6,10 @@ import { pairRef, ratingsRef, userRef } from "../lib/firebase";
 import { loadPair, partnerUidOf } from "../lib/pairs";
 import { messages } from "../notifications/messages";
 import { sendNotification } from "../notifications/send";
-import type { RatingDoc, UserDoc } from "../types";
+import { computeMutualScore } from "../domain/mutualScore";
+import { findWatchlistItem } from "../domain/watchlistService";
+import { watchlistRef } from "../lib/firebase";
+import type { PairDoc, RatingDoc, UserDoc } from "../types";
 
 /**
  * Keeps the derived onboarding state in sync whenever a rating is written.
@@ -24,6 +27,12 @@ export const onRatingComplete = onDocumentWritten(
     const { pairId } = event.params;
     const rating = after.data() as RatingDoc;
     const uid = rating.userId;
+
+    // A post-watch rating feeds the pair's shared verdict on a film, not their
+    // onboarding progress. The two paths share nothing beyond the counter.
+    if (!rating.isInitialOnboarding) {
+      await updateMutualScore(pairId, rating.filmId);
+    }
 
     const [totalSnapshot, onboardingSnapshot] = await Promise.all([
       ratingsRef(pairId).where("userId", "==", uid).count().get(),
@@ -85,3 +94,40 @@ export const onRatingComplete = onDocumentWritten(
     }
   }
 );
+
+/**
+ * Recompute a film's mutual score once both partners have rated it.
+ *
+ * This is what the Watched section of the Watchlist sorts by (PRD §7.4 item 5),
+ * so it stays null until the second rating lands — one person's score is an
+ * opinion, not a shared verdict.
+ */
+async function updateMutualScore(pairId: string, filmId: string): Promise<void> {
+  const item = await findWatchlistItem(pairId, filmId);
+  if (!item) return; // rated something that was never on the list
+
+  const pairSnapshot = await pairRef(pairId).get();
+  const pair = pairSnapshot.data() as PairDoc | undefined;
+  if (!pair?.userB) return;
+
+  const ratings = await ratingsRef(pairId)
+    .where("filmId", "==", filmId)
+    .where("isInitialOnboarding", "==", false)
+    .get();
+
+  const byUser = new Map<string, number>();
+  for (const doc of ratings.docs) {
+    const { userId, score } = doc.data() as RatingDoc;
+    byUser.set(userId, score);
+  }
+
+  const mutualScore = computeMutualScore({
+    a: byUser.get(pair.userA),
+    b: byUser.get(pair.userB),
+  });
+
+  if (mutualScore === null || item.data.mutualScore === mutualScore) return;
+
+  await watchlistRef(pairId).doc(item.id).update({ mutualScore, status: "watched" });
+  logger.info("Mutual score recorded", { pairId, filmId, mutualScore });
+}

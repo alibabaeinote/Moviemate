@@ -48,6 +48,7 @@ data class Pair(
     var aBothOnboarded: Boolean = false,
     val streakCount: Int = 0,
     val lastMatchGeneratedAt: Timestamp? = null,
+    val lastWatchAt: Timestamp? = null,
     val timezone: String = "UTC",
 )
 

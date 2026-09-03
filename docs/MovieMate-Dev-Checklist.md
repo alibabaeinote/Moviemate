@@ -15,7 +15,8 @@
 ## ۰. خلاصه‌ی وضعیت فعلی
 
 ```
-✅ کد شده و تست شده:  موتور recommendation (۴۲ تست)، frequency capها، منطق زمان محلی
+✅ کد شده و تست شده:  موتور recommendation، streak، mutualScore، دک onboarding،
+                     frequency capها، منطق زمان محلی — ۶۶ تست
 🟡 کد نوشته، اجرا نشده: کل Cloud Functions، rules، لایه‌ی TMDB، دیزاین‌سیستم اندروید، صفحات auth
 🔴 شروع‌نشده:          ۱۲ صفحه‌ی اصلی اپ، آمار صفحه‌ی Us، انتشار
 ```
@@ -71,21 +72,35 @@
 | `rejectMatch` (fallback پی‌درپی ۱→۲→۳) | 🟡 |
 | `createPair` / `joinPair` (کد دعوت + انقضا) | 🟡 |
 | `refreshTmdbCache` / `expireInviteCodes` | 🟡 |
+| `onMatchUpdate` (commit + watched + streak + promote) | 🟡 |
+| `listGenres` / `getOnboardingFilms` (دک onboarding) | 🟡 |
 | ۷ نوع نوتیفیکیشن + frequency cap | 🟡 (منطق cap ✅ تست شده) |
 
-### ⚠️ شکاف‌های بک‌اند که در اسناد نبودند و هنوز کد ندارند
+### ✅ شکاف‌های بک‌اند — بسته شدند
 
-این‌ها فیلدهایی هستند که در schema تعریف شده‌اند ولی **هیچ کدی آن‌ها را نمی‌نویسد**:
+| شکاف | وضعیت | کجا |
+|---|---|---|
+| `pairs.streakCount` هرگز زیاد نمی‌شد | ✅ | `domain/streak.ts` + `onMatchUpdate` |
+| `watchlist.mutualScore` هرگز محاسبه نمی‌شد | ✅ | `domain/mutualScore.ts` + `onRatingComplete` |
+| `match.status` هرگز `"watched"` نمی‌شد | ✅ | `onMatchUpdate` |
+| match تاییدشده به watchlist نمی‌رفت | ✅ | `domain/watchlistService.ts` |
+| endpoint استخر فیلم onboarding نبود | ✅ | `callable/onboardingFilms.ts` (دو مرحله: ژانر + دک) |
+
+**۲۴ تست جدید** برای این‌ها نوشته شد (جمع کل: ۶۶). همه 🟡 هستند — کد نوشته شده ولی
+روی Firebase واقعی اجرا نشده.
+
+### ⚠️ دو تصمیم که این کار باز کرد
+
+| مورد | توضیح |
+|---|---|
+| **تعریف streak** | سند می‌گوید «روزهای متوالی»، ولی PRD §۲ می‌گوید کاربر هدف هفته‌ای ۱-۲ بار فیلم می‌بیند. با تعریف تحت‌اللفظی، streak برای هر کاربر واقعی همیشه ۱ می‌ماند. الان با پنجره‌ی مهلت ۷ روزه پیاده شده (`PRODUCT_CONFIG.streakGraceDays`). **نیاز به تایید شما.** |
+| **نوتیف «شریکت فیلم را دید، امتیاز بده»** | بعد از «We watched it»، کسی که دکمه را زد مستقیم به Taste Dial می‌رود ولی **شریکش هیچ اعلانی نمی‌گیرد**. اضافه کردن نوع هشتم نوتیف از بودجه‌ی frequency cap خرج می‌کند، پس عمداً اضافه نشد. |
+
+### 🔴 شکاف باقی‌مانده
 
 | شکاف | اثر |
 |---|---|
-| `pairs.streakCount` هرگز زیاد نمی‌شود | streak در صفحه‌ی Us همیشه صفر می‌ماند |
-| `watchlist.mutualScore` هرگز محاسبه نمی‌شود | مرتب‌سازی «بر اساس رضایت مشترک» (PRD ۷.۴ بند ۵) کار نمی‌کند |
-| `match.status` هرگز به `"watched"` تغییر نمی‌کند | بعد از «We watched it» چرخه بسته نمی‌شود |
-| match تاییدشده به watchlist منتقل نمی‌شود | آیتم‌های Ready فقط از افزودن دستی می‌آیند |
-| هیچ endpoint‌ای برای استخر فیلم onboarding نیست | صفحه‌ی rate اولیه منبع فیلم ندارد |
-
-**این‌ها باید قبل از شروع صفحات UI مربوطه ساخته شوند**، وگرنه UI روی داده‌ی خالی نوشته می‌شود.
+| آمار صفحه‌ی Us (journey, compatibility) هیچ محاسبه‌ای ندارد | فقط streak و شمارش matchهای دوطرفه آماده است |
 
 ---
 
@@ -109,7 +124,7 @@
 | صفحه | وابسته به |
 |---|---|
 | Sign Up / Sign In / Forgot Password | 🟡 **نوشته شده**، فقط build و تست مانده |
-| انتخاب ژانر + دک rating اولیه (۱۰-۱۵ فیلم) | نیاز به endpoint استخر onboarding (بخش ۳) |
+| انتخاب ژانر + دک rating اولیه (۱۰-۱۵ فیلم) | ✅ endpoint آماده است (`listGenres` + `getOnboardingFilms`) |
 | Invite partner (نمایش کد + share) | `createPair` |
 | Join with code | `joinPair` |
 | درخواست مجوز نوتیف (Android 13+) | — |
@@ -118,10 +133,10 @@
 | Fallback سه‌گزینه‌ای (بعد از ۳ رد) | `match.shortlist` (آماده است) |
 | حالت No matches | `match.noMatchesReason` (آماده است) |
 | Reminder / زمان‌بندی | `scheduleWatch` |
-| تایید دستی «We watched it» | نیاز به بستن چرخه (بخش ۳) |
+| تایید دستی «We watched it» | ✅ چرخه‌ی سمت سرور بسته شد |
 | Taste Dial بعد از تماشا | — |
-| Watchlist (Ready / Waiting / Watched + جست‌وجوی TMDB + I'm in too) | نیاز به `mutualScore` (بخش ۳) |
-| Us (streak / journey / compatibility) | نیاز به `streakCount` (بخش ۳) |
+| Watchlist (Ready / Waiting / Watched + جست‌وجوی TMDB + I'm in too) | ✅ `mutualScore` آماده است |
+| Us (streak / journey / compatibility) | ✅ `streakCount` آماده؛ journey/compatibility هنوز نه |
 | Settings + About با attribution رسمی TMDB | الزام قانونی |
 
 ---
@@ -157,9 +172,9 @@
 مرحله ۱ — رفع انسداد (چند روز)
   بخش ۱ کامل + اولین build موفق اندروید + deploy rules و functions
 
-مرحله ۲ — بستن شکاف‌های بک‌اند (بخش ۳)
-  streak، mutualScore، بستن چرخه‌ی watched، endpoint استخر onboarding
-  → بدون این‌ها صفحات UI روی داده‌ی خالی ساخته می‌شوند
+مرحله ۲ — بستن شکاف‌های بک‌اند ✅ انجام شد
+  streak، mutualScore، بستن چرخه‌ی watched، promote به watchlist،
+  endpoint استخر onboarding — همه کد شده و unit test دارند
 
 مرحله ۳ — مسیر onboarding کامل
   ژانر → rate → invite → مجوز نوتیف → waiting → partner join

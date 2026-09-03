@@ -108,6 +108,9 @@ export interface DiscoverOptions {
   withGenres?: number[];
   minVoteCount?: number;
   sortBy?: string;
+  /** Inclusive release-date window, "YYYY-MM-DD". Used to span eras. */
+  releasedAfter?: string;
+  releasedBefore?: string;
 }
 
 /**
@@ -127,6 +130,12 @@ export function discoverMovies(options: DiscoverOptions = {}): Promise<TmdbPage<
   };
   if (options.withGenres?.length) {
     params["with_genres"] = options.withGenres.join("|");
+  }
+  if (options.releasedAfter) {
+    params["primary_release_date.gte"] = options.releasedAfter;
+  }
+  if (options.releasedBefore) {
+    params["primary_release_date.lte"] = options.releasedBefore;
   }
   return request<TmdbPage<TmdbMovie>>("/discover/movie", params);
 }

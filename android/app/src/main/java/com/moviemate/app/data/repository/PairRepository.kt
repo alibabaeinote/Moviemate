@@ -56,6 +56,47 @@ class PairRepository(
         data["pairId"] as String
     }
 
+    // ---------- Onboarding content ----------
+
+    /** Stage 1 of onboarding: the genres the user picks from. */
+    suspend fun listGenres(): Result<List<TmdbGenre>> = runCatching {
+        val response = functions.getHttpsCallable("listGenres").call().await()
+
+        @Suppress("UNCHECKED_CAST")
+        val data = response.data as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val genres = data["genres"] as List<Map<String, Any?>>
+        genres.map { TmdbGenre(id = (it["id"] as Number).toInt(), name = it["name"] as String) }
+    }
+
+    /**
+     * Stage 2: the rating deck, spread across eras rather than just the most
+     * popular titles — era and country carry 40% of the scoring weight, and a
+     * deck of recent blockbusters teaches the profile neither.
+     */
+    suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>> = runCatching {
+        val response = functions
+            .getHttpsCallable("getOnboardingFilms")
+            .call(mapOf("genreIds" to genreIds))
+            .await()
+
+        @Suppress("UNCHECKED_CAST")
+        val data = response.data as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val films = data["films"] as List<Map<String, Any?>>
+        films.map { film ->
+            @Suppress("UNCHECKED_CAST")
+            DeckFilm(
+                filmId = film["filmId"] as String,
+                title = film["title"] as String,
+                posterPath = film["posterPath"] as String?,
+                genres = (film["genres"] as? List<String>).orEmpty(),
+                releaseYear = (film["releaseYear"] as Number).toInt(),
+                overview = film["overview"] as? String ?: "",
+            )
+        }
+    }
+
     // ---------- Live reads ----------
 
     fun observeUser(uid: String): Flow<User?> = callbackFlow {
@@ -197,4 +238,19 @@ data class InviteInfo(
     val pairId: String,
     val inviteCode: String,
     val expiresAtMillis: Long,
+)
+
+data class TmdbGenre(
+    val id: Int,
+    val name: String,
+)
+
+/** One card in the onboarding rating deck. */
+data class DeckFilm(
+    val filmId: String,
+    val title: String,
+    val posterPath: String?,
+    val genres: List<String>,
+    val releaseYear: Int,
+    val overview: String,
 )

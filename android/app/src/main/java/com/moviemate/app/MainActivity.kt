@@ -7,8 +7,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.setValue
 import androidx.navigation.compose.rememberNavController
+import com.moviemate.app.di.LocalAppGraph
 import com.moviemate.app.nav.MovieMateNavHost
 import com.moviemate.app.nav.routeForDeepLink
 import com.moviemate.app.ui.theme.MovieMateTheme
@@ -33,14 +35,18 @@ class MainActivity : ComponentActivity() {
         // Cold start from a notification tap.
         pendingDeepLink = intent.readDeepLinkRoute()
 
+        val graph = (application as MovieMateApplication).graph
+
         setContent {
-            MovieMateTheme {
-                val navController = rememberNavController()
-                MovieMateNavHost(
-                    navController = navController,
-                    pendingDeepLinkRoute = pendingDeepLink,
-                    onDeepLinkConsumed = { pendingDeepLink = null },
-                )
+            CompositionLocalProvider(LocalAppGraph provides graph) {
+                MovieMateTheme {
+                    val navController = rememberNavController()
+                    MovieMateNavHost(
+                        navController = navController,
+                        pendingDeepLinkRoute = pendingDeepLink,
+                        onDeepLinkConsumed = { pendingDeepLink = null },
+                    )
+                }
             }
         }
     }

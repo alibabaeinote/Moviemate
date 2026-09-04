@@ -9,6 +9,9 @@ package com.moviemate.app.nav
  * notification promised.
  */
 object Routes {
+    /** Decides where a launch or a sign-in actually lands. See RoutingScreen. */
+    const val ROUTING = "routing"
+
     const val WELCOME = "welcome"
     const val SIGN_UP = "signUp"
     const val SIGN_IN = "signIn"

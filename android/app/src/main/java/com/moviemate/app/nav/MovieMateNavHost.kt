@@ -23,6 +23,11 @@ import com.moviemate.app.ui.screens.auth.ForgotPasswordScreen
 import com.moviemate.app.ui.screens.auth.SignInScreen
 import com.moviemate.app.ui.screens.auth.SignUpScreen
 import com.moviemate.app.ui.screens.auth.WelcomeScreen
+import com.moviemate.app.ui.screens.onboarding.InvitePartnerScreen
+import com.moviemate.app.ui.screens.onboarding.JoinPartnerScreen
+import com.moviemate.app.ui.screens.onboarding.NotificationPermissionScreen
+import com.moviemate.app.ui.screens.onboarding.OnboardingRateScreen
+import com.moviemate.app.ui.screens.onboarding.WaitingForPartnerScreen
 import com.moviemate.app.ui.theme.Space
 
 /**
@@ -43,7 +48,7 @@ fun MovieMateNavHost(
     navController: NavHostController,
     pendingDeepLinkRoute: String?,
     onDeepLinkConsumed: () -> Unit,
-    startDestination: String = Routes.WELCOME,
+    startDestination: String = Routes.ROUTING,
 ) {
     // Act on a notification tap once the graph is composed, from either entry path.
     LaunchedEffect(pendingDeepLinkRoute) {
@@ -80,8 +85,11 @@ fun MovieMateNavHost(
             startDestination = startDestination,
             modifier = Modifier.fillMaxSize().padding(innerPadding),
         ) {
+            composable(Routes.ROUTING) {
+                RoutingScreen(onResolved = { navController.replaceWith(it) })
+            }
             authGraph(navController)
-            onboardingGraph()
+            onboardingGraph(navController)
             mainGraph()
         }
     }
@@ -96,13 +104,15 @@ private fun androidx.navigation.NavGraphBuilder.authGraph(navController: NavHost
     }
     composable(Routes.SIGN_UP) {
         SignUpScreen(
-            onSignedUp = { navController.navigate(Routes.ONBOARDING_RATE) },
+            onSignedUp = { navController.replaceWith(Routes.ONBOARDING_RATE) },
             onSignInInstead = { navController.navigate(Routes.SIGN_IN) },
         )
     }
     composable(Routes.SIGN_IN) {
         SignInScreen(
-            onSignedIn = { navController.navigate(Routes.MATCH) },
+            // Back through Routing, not straight to Match: a returning user may
+            // be mid-onboarding, or waiting on a partner who never joined.
+            onSignedIn = { navController.replaceWith(Routes.ROUTING) },
             onForgotPassword = { navController.navigate(Routes.FORGOT_PASSWORD) },
             onSignUpInstead = { navController.navigate(Routes.SIGN_UP) },
         )
@@ -112,21 +122,56 @@ private fun androidx.navigation.NavGraphBuilder.authGraph(navController: NavHost
     }
 }
 
-private fun androidx.navigation.NavGraphBuilder.onboardingGraph() {
+/**
+ * Onboarding is a chain, and every step pops the one before it.
+ *
+ * Back-navigating into a finished step is not a recoverable state here: the
+ * rating deck is spent, and the invite screen would try to create a second pair
+ * for someone who already has one. So each step replaces its predecessor rather
+ * than stacking on it.
+ */
+private fun androidx.navigation.NavGraphBuilder.onboardingGraph(navController: NavHostController) {
     composable(Routes.ONBOARDING_RATE) {
-        PlaceholderScreen("Rate a few films", "Taste Dial deck, backed by TMDB")
+        OnboardingRateScreen(
+            onFinished = { navController.replaceWith(Routes.INVITE_PARTNER) },
+        )
     }
     composable(Routes.INVITE_PARTNER) {
-        PlaceholderScreen("Invite your partner", "Invite code from createPair")
+        InvitePartnerScreen(
+            onContinue = { navController.replaceWith(Routes.NOTIFICATION_PERMISSION) },
+            onJoinInstead = { navController.replaceWith(Routes.JOIN_PARTNER) },
+        )
     }
     composable(Routes.JOIN_PARTNER) {
-        PlaceholderScreen("Join with a code", "Calls joinPair")
+        JoinPartnerScreen(
+            onJoined = { navController.replaceWith(Routes.NOTIFICATION_PERMISSION) },
+            onInviteInstead = { navController.replaceWith(Routes.INVITE_PARTNER) },
+        )
     }
     composable(Routes.NOTIFICATION_PERMISSION) {
-        PlaceholderScreen("Stay in the loop", "POST_NOTIFICATIONS request")
+        NotificationPermissionScreen(
+            onDone = { navController.replaceWith(Routes.WAITING_FOR_PARTNER) },
+        )
     }
     composable(Routes.WAITING_FOR_PARTNER) {
-        PlaceholderScreen("Waiting on your partner", "Listens to pair.aBothOnboarded")
+        WaitingForPartnerScreen(
+            onReady = { navController.replaceWith(Routes.MATCH) },
+        )
+    }
+}
+
+/**
+ * Navigate forward and drop the current screen from the back stack.
+ *
+ * `launchSingleTop` matters as much as the pop: these calls are fired from
+ * LaunchedEffect blocks that can recompose, and without it a single "you're
+ * ready" can push the match screen twice.
+ */
+private fun NavHostController.replaceWith(route: String) {
+    val current = currentBackStackEntry?.destination?.route
+    navigate(route) {
+        launchSingleTop = true
+        if (current != null) popUpTo(current) { inclusive = true }
     }
 }
 

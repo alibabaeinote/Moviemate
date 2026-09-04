@@ -23,7 +23,7 @@ import com.moviemate.app.ui.screens.auth.ForgotPasswordScreen
 import com.moviemate.app.ui.screens.auth.SignInScreen
 import com.moviemate.app.ui.screens.auth.SignUpScreen
 import com.moviemate.app.ui.screens.auth.WelcomeScreen
-import com.moviemate.app.ui.theme.Spacing
+import com.moviemate.app.ui.theme.Space
 
 /**
  * The three main tabs. Icons are placeholders from the Material set; the design
@@ -59,7 +59,7 @@ fun MovieMateNavHost(
     Scaffold(
         bottomBar = {
             if (showBottomNav && currentRoute != null) {
-                Box(Modifier.padding(horizontal = Spacing.s4, vertical = Spacing.s3)) {
+                Box(Modifier.padding(horizontal = Space.stack, vertical = Space.stackTight)) {
                     MovieMateBottomNav(
                         items = bottomNavItems,
                         selectedRoute = currentRoute,

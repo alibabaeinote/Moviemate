@@ -11,14 +11,23 @@ import androidx.compose.ui.unit.sp
 import com.moviemate.app.R
 
 /**
- * Typography from Design System v8 §3 — locked.
+ * TIER 2 — Typography roles.
+ *
+ * Mirrors `sys.type.*` in design/tokens.json. Roles are named by what they are
+ * ("filmTitle"), never by size — a screen never asks for 34sp.
+ *
+ * **These styles carry no colour.** Colour is a separate role, applied at the
+ * call site from [MovieMateTheme.colors]. Baking a colour into a type style is
+ * what forces a second set of styles the moment a second theme exists.
  *
  * Two families, with a hard split:
  *  - Big Shoulders Display: large headlines, film titles, stat numbers. Nothing else.
  *  - Inter: body, meta, tag labels, button text, nav labels, forms.
  *
- * Button text is deliberately Inter, not the display face — legibility at
- * button size was the reason Anton was dropped.
+ * Button text is deliberately Inter. Archivo Black was too wide and Anton was
+ * unreadable at small sizes; Big Shoulders is drawn condensed rather than
+ * squeezed, which is why it survives at 12sp — but it still loses to Inter on a
+ * button.
  */
 
 val BigShouldersDisplay = FontFamily(
@@ -35,21 +44,18 @@ val Inter = FontFamily(
     Font(R.font.inter_extrabold, FontWeight.ExtraBold),
 )
 
-/**
- * The named styles from the design system's scale. Prefer these over ad-hoc
- * TextStyle values — a new style should be added here, not invented inline.
- */
 object MovieMateType {
-    /** Page headline / date. 54sp, Black, uppercase, tight leading. */
+
+    /** Page headline or date. Uppercase, tight leading. */
     val megaHeadline = TextStyle(
         fontFamily = BigShouldersDisplay,
         fontWeight = FontWeight.Black,
         fontSize = 54.sp,
-        lineHeight = 51.84.sp, // 0.96 line-height
+        lineHeight = 51.84.sp, // 0.96
         letterSpacing = (-0.5).sp,
     )
 
-    /** Film or list-item title. 34sp. */
+    /** Film or list-item title. */
     val filmTitle = TextStyle(
         fontFamily = BigShouldersDisplay,
         fontWeight = FontWeight.ExtraBold,
@@ -57,13 +63,12 @@ object MovieMateType {
         lineHeight = 34.sp,
     )
 
-    /** Stat number, e.g. "98%". Always Blue. */
+    /** Stat number, e.g. "98". Pair with `colors.textAccent`. */
     val statNumber = TextStyle(
         fontFamily = BigShouldersDisplay,
         fontWeight = FontWeight.Black,
         fontSize = 44.sp,
-        lineHeight = 44.sp,
-        color = MovieMateColors.Blue,
+        lineHeight = 39.6.sp, // 0.9
     )
 
     /** Stat caption, e.g. "shared taste". */
@@ -72,7 +77,6 @@ object MovieMateType {
         fontWeight = FontWeight.ExtraBold,
         fontSize = 24.sp,
         lineHeight = 24.sp,
-        color = MovieMateColors.Ink,
     )
 
     /** Body copy. */
@@ -81,18 +85,16 @@ object MovieMateType {
         fontWeight = FontWeight.Normal,
         fontSize = 14.5.sp,
         lineHeight = 1.55.em,
-        color = MovieMateColors.Ink,
     )
 
-    /** Meta line under a title. */
+    /** Meta line under a title. Pair with `colors.textSecondary`. */
     val meta = TextStyle(
         fontFamily = Inter,
         fontWeight = FontWeight.Medium,
         fontSize = 13.5.sp,
-        color = MovieMateColors.InkSecondary,
     )
 
-    /** CTA button label — Inter, never the display face. */
+    /** CTA button label — body face, never the display face. */
     val cta = TextStyle(
         fontFamily = Inter,
         fontWeight = FontWeight.Bold,
@@ -114,12 +116,19 @@ object MovieMateType {
         fontSize = 11.sp,
     )
 
+    /** Small uppercase section label. Pair with `colors.textSecondary`. */
+    val overline = TextStyle(
+        fontFamily = Inter,
+        fontWeight = FontWeight.Bold,
+        fontSize = 10.5.sp,
+        letterSpacing = 0.12.em,
+    )
+
     /** Form field label. */
     val fieldLabel = TextStyle(
         fontFamily = Inter,
         fontWeight = FontWeight.SemiBold,
         fontSize = 13.sp,
-        color = MovieMateColors.InkSecondary,
     )
 }
 

@@ -28,10 +28,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.moviemate.app.data.repository.AuthRepository
 import com.moviemate.app.ui.components.PrimaryCta
 import com.moviemate.app.ui.components.SecondaryCta
-import com.moviemate.app.ui.theme.MovieMateColors
+import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
 import com.moviemate.app.ui.theme.Radius
-import com.moviemate.app.ui.theme.Spacing
+import com.moviemate.app.ui.theme.Space
 import kotlinx.coroutines.launch
 
 /** Shared page frame: warm background, one task per screen (Design System §1). */
@@ -40,10 +40,10 @@ private fun AuthScaffold(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MovieMateColors.Background)
+            .background(MovieMateTheme.colors.surfaceGround)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.s5, vertical = Spacing.s7),
-        verticalArrangement = Arrangement.spacedBy(Spacing.s4),
+            .padding(horizontal = Space.screenGutter, vertical = Space.screenTop),
+        verticalArrangement = Arrangement.spacedBy(Space.stack),
     ) { content() }
 }
 
@@ -56,8 +56,10 @@ private fun Field(
     isPassword: Boolean = false,
     imeAction: ImeAction = ImeAction.Next,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.s1)) {
-        Text(text = label, style = MovieMateType.fieldLabel)
+    val colors = MovieMateTheme.colors
+
+    Column(verticalArrangement = Arrangement.spacedBy(Space.inlineTight)) {
+        Text(text = label, style = MovieMateType.fieldLabel, color = colors.textSecondary)
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
@@ -69,10 +71,13 @@ private fun Field(
                 if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MovieMateColors.Blue,
-                unfocusedBorderColor = MovieMateColors.InkSecondary.copy(alpha = 0.4f),
-                focusedContainerColor = MovieMateColors.Paper,
-                unfocusedContainerColor = MovieMateColors.Paper,
+                focusedBorderColor = colors.textAccent,
+                unfocusedBorderColor = colors.borderHairline,
+                focusedContainerColor = colors.surfaceRaised,
+                unfocusedContainerColor = colors.surfaceRaised,
+                focusedTextColor = colors.textPrimary,
+                unfocusedTextColor = colors.textPrimary,
+                cursorColor = colors.textAccent,
             ),
         )
     }
@@ -81,18 +86,19 @@ private fun Field(
 @Composable
 private fun ErrorText(message: String?) {
     if (message == null) return
-    Text(text = message, style = MovieMateType.meta, color = MovieMateColors.Coral)
+    Text(text = message, style = MovieMateType.meta, color = MovieMateTheme.colors.statusDecorative)
 }
 
 @Composable
 fun WelcomeScreen(onSignUp: () -> Unit, onSignIn: () -> Unit) {
     AuthScaffold {
-        Text("MOVIEMATE", style = MovieMateType.megaHeadline)
+        Text("MOVIEMATE", style = MovieMateType.megaHeadline, color = MovieMateTheme.colors.textPrimary)
         Text(
             "One film a night, picked for both of you.",
             style = MovieMateType.body,
+            color = MovieMateTheme.colors.textSecondary,
         )
-        Spacer(Modifier.height(Spacing.s6))
+        Spacer(Modifier.height(Space.sectionGap))
         PrimaryCta(label = "Create your profile", onClick = onSignUp)
         SecondaryCta(label = "I already have an account", onClick = onSignIn)
     }
@@ -119,7 +125,7 @@ fun SignUpScreen(
     val scope = rememberCoroutineScope()
 
     AuthScaffold {
-        Text("CREATE YOUR PROFILE", style = MovieMateType.megaHeadline)
+        Text("CREATE YOUR PROFILE", style = MovieMateType.megaHeadline, color = MovieMateTheme.colors.textPrimary)
 
         Field("Name", name, { name = it })
         Field("Email", email, { email = it }, keyboardType = KeyboardType.Email)
@@ -136,6 +142,7 @@ fun SignUpScreen(
         Text(
             "We'll email you a verification link.",
             style = MovieMateType.meta,
+            color = MovieMateTheme.colors.textSecondary,
         )
 
         PrimaryCta(
@@ -170,7 +177,7 @@ fun SignInScreen(
     val scope = rememberCoroutineScope()
 
     AuthScaffold {
-        Text("WELCOME BACK", style = MovieMateType.megaHeadline)
+        Text("WELCOME BACK", style = MovieMateType.megaHeadline, color = MovieMateTheme.colors.textPrimary)
 
         Field("Email", email, { email = it }, keyboardType = KeyboardType.Email)
         Field(
@@ -214,12 +221,16 @@ fun ForgotPasswordScreen(
     val scope = rememberCoroutineScope()
 
     AuthScaffold {
-        Text("RESET PASSWORD", style = MovieMateType.megaHeadline)
+        Text("RESET PASSWORD", style = MovieMateType.megaHeadline, color = MovieMateTheme.colors.textPrimary)
         Field("Email", email, { email = it }, keyboardType = KeyboardType.Email, imeAction = ImeAction.Done)
         ErrorText(error)
 
         if (sent) {
-            Text("Check your inbox for the reset link.", style = MovieMateType.body)
+            Text(
+                "Check your inbox for the reset link.",
+                style = MovieMateType.body,
+                color = MovieMateTheme.colors.textPrimary,
+            )
             PrimaryCta(label = "Back to sign in", onClick = onDone)
         } else {
             PrimaryCta(

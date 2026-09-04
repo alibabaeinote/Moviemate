@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.moviemate.app.ui.theme.MovieMateColors
+import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
-import com.moviemate.app.ui.theme.Spacing
+import com.moviemate.app.ui.theme.Space
 
 /**
  * Stand-in for a screen that is routed but not yet built.
@@ -20,15 +20,21 @@ import com.moviemate.app.ui.theme.Spacing
  */
 @Composable
 fun PlaceholderScreen(title: String, note: String) {
+    val colors = MovieMateTheme.colors
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MovieMateColors.Background)
-            .padding(Spacing.s5),
-        verticalArrangement = Arrangement.spacedBy(Spacing.s3),
+            .background(colors.surfaceGround)
+            .padding(Space.screenGutter),
+        verticalArrangement = Arrangement.spacedBy(Space.stackTight),
     ) {
-        Text(text = title.uppercase(), style = MovieMateType.megaHeadline)
-        Text(text = note, style = MovieMateType.body)
-        Text(text = "Not built yet.", style = MovieMateType.meta)
+        Text(
+            text = title.uppercase(),
+            style = MovieMateType.megaHeadline,
+            color = colors.textPrimary,
+        )
+        Text(text = note, style = MovieMateType.body, color = colors.textPrimary)
+        Text(text = "Not built yet.", style = MovieMateType.meta, color = colors.textSecondary)
     }
 }

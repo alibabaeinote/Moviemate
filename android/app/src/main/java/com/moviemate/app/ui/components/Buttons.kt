@@ -16,55 +16,74 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.moviemate.app.ui.theme.MovieMateColors
+import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
 import com.moviemate.app.ui.theme.Radius
-import com.moviemate.app.ui.theme.Spacing
+import com.moviemate.app.ui.theme.Opacity
+import com.moviemate.app.ui.theme.Space
 
 /**
- * Full-width pill CTA — Design System v8 §5.
+ * Full-width pill CTA.
  *
- * Label uses Inter, not the display face: legibility at button size is why
- * Anton was dropped from the type system.
+ * [tone] picks a semantic role rather than a colour, so "the reward button" stays
+ * the reward button when the palette moves.
  */
+enum class CtaTone {
+    /** Ordinary primary action. */
+    Primary,
+
+    /**
+     * Completion only: mutual commitment reached, "We watched it", a best week.
+     * Using this for an ordinary action is what turned lime into decoration.
+     */
+    Reward,
+}
+
 @Composable
 fun PrimaryCta(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    tone: CtaTone = CtaTone.Primary,
 ) {
+    val colors = MovieMateTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by rememberPressScale(interactionSource)
+
+    val fill = when {
+        tone == CtaTone.Reward && pressed -> colors.actionRewardHover
+        tone == CtaTone.Reward -> colors.actionRewardFill
+        pressed -> colors.actionPrimaryPressed
+        else -> colors.actionPrimaryFill
+    }
+    val content = if (tone == CtaTone.Reward) colors.textOnReward else colors.textOnFill
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .scale(scale)
             .background(
-                color = when {
-                    !enabled -> MovieMateColors.Blue.copy(alpha = 0.35f)
-                    pressed -> MovieMateColors.BlueDark
-                    else -> MovieMateColors.Blue
-                },
+                color = if (enabled) fill else fill.copy(alpha = Opacity.disabled),
                 shape = RoundedCornerShape(Radius.pill),
             )
             .pressable(interactionSource = interactionSource, enabled = enabled, onClick = onClick)
-            .padding(vertical = 17.dp, horizontal = Spacing.s5),
+            .padding(vertical = 15.dp, horizontal = Space.screenGutter),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = label, style = MovieMateType.cta, color = MovieMateColors.OnBlue)
+        Text(text = label, style = MovieMateType.cta, color = content)
     }
 }
 
-/** Quiet secondary action — used for "Not feeling it" on the match card. */
+/** Quiet secondary action — used for "Not feeling it" and similar. */
 @Composable
 fun SecondaryCta(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = MovieMateTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by rememberPressScale(interactionSource)
@@ -74,13 +93,17 @@ fun SecondaryCta(
             .fillMaxWidth()
             .scale(scale)
             .background(
-                color = if (pressed) MovieMateColors.Ink.copy(alpha = 0.06f) else Color.Transparent,
+                color = if (pressed) {
+                    colors.textPrimary.copy(alpha = Opacity.pressWash)
+                } else {
+                    Color.Transparent
+                },
                 shape = RoundedCornerShape(Radius.pill),
             )
             .pressable(interactionSource = interactionSource, onClick = onClick)
-            .padding(vertical = 17.dp, horizontal = Spacing.s5),
+            .padding(vertical = 15.dp, horizontal = Space.screenGutter),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = label, style = MovieMateType.cta, color = MovieMateColors.InkSecondary)
+        Text(text = label, style = MovieMateType.cta, color = colors.actionQuietText)
     }
 }

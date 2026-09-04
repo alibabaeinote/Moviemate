@@ -16,10 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.moviemate.app.ui.theme.MovieMateColors
+import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
 import com.moviemate.app.ui.theme.Radius
-import com.moviemate.app.ui.theme.Spacing
+import com.moviemate.app.ui.theme.Space
 
 data class BottomNavItem(
     val label: String,
@@ -28,12 +28,13 @@ data class BottomNavItem(
 )
 
 /**
- * Bottom navigation — Design System v8 §5.
+ * Bottom navigation.
  *
- * Every item has the SAME vertical structure (icon above label, centred). The
- * active item differs only by its soft-blue pill background and blue tint — its
- * layout never changes. An earlier draft laid the active item out horizontally
- * while the others stayed vertical; that was a bug and is explicitly fixed.
+ * All three items share ONE vertical structure: icon above label, centred. The
+ * active item differs only by `surfaceAccent` behind it and `textAccent` on it —
+ * its layout never changes. An early v8 draft laid the active item out
+ * horizontally while the others stayed vertical; that was a bug, and this
+ * structure is what prevents it coming back.
  */
 @Composable
 fun MovieMateBottomNav(
@@ -42,11 +43,13 @@ fun MovieMateBottomNav(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = MovieMateTheme.colors
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MovieMateColors.Paper, RoundedCornerShape(Radius.pill))
-            .padding(vertical = Spacing.s3, horizontal = Spacing.s2),
+            .background(colors.surfaceRaised, RoundedCornerShape(Radius.pill))
+            .padding(vertical = Space.inline, horizontal = Space.inline),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -66,24 +69,26 @@ private fun NavItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val tint = if (selected) MovieMateColors.Blue else MovieMateColors.InkSecondary
+    val colors = MovieMateTheme.colors
+    val tint = if (selected) colors.textAccent else colors.textSecondary
 
     Column(
         modifier = Modifier
             .background(
-                color = if (selected) MovieMateColors.BlueSoft else Color.Transparent,
+                color = if (selected) colors.surfaceAccent else Color.Transparent,
                 shape = RoundedCornerShape(Radius.pill),
             )
             .pressableCard(onClick = onClick)
-            .padding(horizontal = Spacing.s4, vertical = Spacing.s2),
+            // 48dp minimum touch target (a11y.minTouchTarget).
+            .padding(horizontal = Space.stackTight, vertical = Space.stackTight),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(Spacing.s1),
+        verticalArrangement = Arrangement.spacedBy(Space.inlineTight),
     ) {
         Icon(
             imageVector = item.icon,
             contentDescription = item.label,
             tint = tint,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(21.dp),
         )
         Text(text = item.label, style = MovieMateType.navLabel, color = tint)
     }

@@ -1,0 +1,30 @@
+{
+  "_comment": "PLACEHOLDER — CI only. Contains no real project. The google-services Gradle plugin refuses to configure without this file, so CI copies it to google-services.json to prove the app compiles. Every identifier below is fake; a build made with it cannot reach Firebase. The real file is downloaded from the Firebase console and is git-ignored.",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "moviemate-ci-placeholder",
+    "storage_bucket": "moviemate-ci-placeholder.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.moviemate.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyPLACEHOLDERPLACEHOLDERPLACEHOLDER00"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

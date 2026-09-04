@@ -95,3 +95,61 @@ jobs:
             git diff -- docs/MovieMate-Design-System.md
             exit 1
           fi
+
+  android:
+    name: Android build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # AGP 8.7 targets JDK 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # The google-services plugin refuses to configure without this file. The
+      # placeholder is fake throughout, so the resulting build cannot reach
+      # Firebase — it only proves the code compiles.
+      - name: Provide placeholder Firebase config
+        run: cp android/app/google-services.ci.json android/app/google-services.json
+
+      # TMDB_ACCESS_TOKEN is read into BuildConfig. Empty is fine for a compile;
+      # TmdbApi checks for blank at call time and fails loudly rather than
+      # sending an unauthenticated request.
+      - name: Compile and lint
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug lintDebug
+
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moviemate-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+
+      # Lint and test reports are the only way to see what happened on a red run.
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: |
+            android/app/build/reports/**
+          if-no-files-found: ignore

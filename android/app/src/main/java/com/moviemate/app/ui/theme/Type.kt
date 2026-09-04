@@ -4,6 +4,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.em
@@ -30,18 +31,32 @@ import com.moviemate.app.R
  * button.
  */
 
+/**
+ * Both families ship as single variable fonts rather than one file per weight.
+ *
+ * Google Fonts now publishes only the variable cuts, and minSdk 26 supports
+ * them, so this is two files instead of eight — and any weight in the range is
+ * reachable, not just the ones we happened to download.
+ *
+ * A variable font ignores [FontWeight] on its own: the weight has to be passed
+ * as a variation axis as well, which is what [FontVariation.Settings] does here.
+ * Setting only the FontWeight would render every style at the default instance.
+ */
+private fun variableWeight(weight: FontWeight) =
+    FontVariation.Settings(FontVariation.weight(weight.weight))
+
 val BigShouldersDisplay = FontFamily(
-    Font(R.font.big_shoulders_display_bold, FontWeight.Bold),
-    Font(R.font.big_shoulders_display_extrabold, FontWeight.ExtraBold),
-    Font(R.font.big_shoulders_display_black, FontWeight.Black),
+    Font(R.font.big_shoulders_display_variable, FontWeight.Bold, variationSettings = variableWeight(FontWeight.Bold)),
+    Font(R.font.big_shoulders_display_variable, FontWeight.ExtraBold, variationSettings = variableWeight(FontWeight.ExtraBold)),
+    Font(R.font.big_shoulders_display_variable, FontWeight.Black, variationSettings = variableWeight(FontWeight.Black)),
 )
 
 val Inter = FontFamily(
-    Font(R.font.inter_regular, FontWeight.Normal),
-    Font(R.font.inter_medium, FontWeight.Medium),
-    Font(R.font.inter_semibold, FontWeight.SemiBold),
-    Font(R.font.inter_bold, FontWeight.Bold),
-    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
+    Font(R.font.inter_variable, FontWeight.Normal, variationSettings = variableWeight(FontWeight.Normal)),
+    Font(R.font.inter_variable, FontWeight.Medium, variationSettings = variableWeight(FontWeight.Medium)),
+    Font(R.font.inter_variable, FontWeight.SemiBold, variationSettings = variableWeight(FontWeight.SemiBold)),
+    Font(R.font.inter_variable, FontWeight.Bold, variationSettings = variableWeight(FontWeight.Bold)),
+    Font(R.font.inter_variable, FontWeight.ExtraBold, variationSettings = variableWeight(FontWeight.ExtraBold)),
 )
 
 object MovieMateType {

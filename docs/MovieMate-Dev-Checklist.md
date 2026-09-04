@@ -15,8 +15,8 @@
 ## ۰. خلاصه‌ی وضعیت فعلی
 
 ```
-✅ کد شده و تست شده:  موتور recommendation، streak، mutualScore، دک onboarding،
-                     frequency capها، منطق زمان محلی — ۶۶ تست
+✅ کد شده و تست شده:  کل بک‌اند + rules — ۱۷۵ تست در ۳ لایه
+                     ۶۶ واحد (منطق خالص) · ۶۴ rules (emulator) · ۴۵ یکپارچه (emulator)
 🟡 کد نوشته، اجرا نشده: کل Cloud Functions، rules، لایه‌ی TMDB، دیزاین‌سیستم اندروید، صفحات auth
 🔴 شروع‌نشده:          ۱۲ صفحه‌ی اصلی اپ، آمار صفحه‌ی Us، انتشار
 ```
@@ -42,17 +42,19 @@
 
 ---
 
-## ۲. راستی‌آزمایی چیزی که ساخته شده (قدم بعدی بلافاصله بعد از بخش ۱)
+## ۲. راستی‌آزمایی چیزی که ساخته شده
 
 | مورد | وضعیت | توضیح |
 |---|---|---|
-| اولین build موفق اندروید | 🔴 | **حتماً اول این** — کد اندروید هرگز کامپایل نشده |
-| Deploy کردن `firestore.rules` | 🟡 | فایل آماده و اصلاح‌شده است |
-| تست rules با Firebase Emulator | 🔴 | **اولویت بالا** — حفره‌ی `commitStatus` رفع شد ولی تست نشده؛ سناریوی کلیدی: userA نتواند `commitStatus.userB` را عوض کند |
-| Deploy کردن Cloud Functions | 🟡 | ۱۱ تابع، TypeScript تمیز کامپایل می‌شود |
-| تست `generateDailyMatch` با داده‌ی seed | 🔴 | باید با ۲ کاربر ساختگی و ۱۰ rating هرکدام تست شود |
+| تست rules با Firebase Emulator | ✅ | **۶۴ تست** — حفره‌ی `commitStatus` از هر دو طرف پین شد |
+| تست یکپارچه‌ی triggerها و callableها | ✅ | **۴۵ تست** روی emulator واقعی — شامل guardهای ضدحلقه |
+| CI (GitHub Actions) | ✅ | ۴ job: unit + integration + rules + توکن‌ها |
+| اولین build موفق اندروید | 🔴 | **مسدود** — Android SDK لازم است |
+| Deploy کردن `firestore.rules` | 🟡 | تست‌شده، منتظر پروژه‌ی Firebase |
+| Deploy کردن Cloud Functions | 🟡 | ۱۴ تابع، typecheck تمیز |
 | اولین فراخوانی واقعی TMDB | 🔴 | کلاینت نوشته شده، هرگز به API واقعی نخورده |
 | اولین نوتیفیکیشن واقعی روی دستگاه فیزیکی | 🔴 | |
+| تست `generateDailyMatch` | 🔴 | **نیاز به refactor** — استخر کاندیدا باید تزریق شود نه fetch |
 
 ---
 
@@ -101,6 +103,7 @@
 | شکاف | اثر |
 |---|---|
 | آمار صفحه‌ی Us (journey, compatibility) هیچ محاسبه‌ای ندارد | فقط streak و شمارش matchهای دوطرفه آماده است |
+| `generateDailyMatch` تست یکپارچه ندارد | برای تست باید استخر کاندیدا تزریق‌پذیر شود |
 
 ---
 
@@ -175,6 +178,9 @@
 مرحله ۲ — بستن شکاف‌های بک‌اند ✅ انجام شد
   streak، mutualScore، بستن چرخه‌ی watched، promote به watchlist،
   endpoint استخر onboarding — همه کد شده و unit test دارند
+
+مرحله ۲.۵ — راستی‌آزمایی ✅ انجام شد
+  ۶۴ تست rules + ۴۵ تست یکپارچه + CI
 
 مرحله ۳ — مسیر onboarding کامل
   ژانر → rate → invite → مجوز نوتیف → waiting → partner join

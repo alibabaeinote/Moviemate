@@ -2,7 +2,7 @@
   "name": "moviemate-functions",
   "version": "0.1.0",
   "private": true,
-  "description": "MovieMate Cloud Functions — pairing, recommendation engine, TMDB cache, FCM",
+  "description": "MovieMate Cloud Functions \u2014 pairing, recommendation engine, TMDB cache, FCM",
   "main": "lib/index.js",
   "engines": {
     "node": "22"
@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
-    "deploy": "firebase deploy --only functions"
+    "deploy": "firebase deploy --only functions",
+    "test:integration": "firebase emulators:exec --only firestore --project moviemate-test --config integration/firebase.json 'vitest run --config integration/vitest.config.ts'"
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",
@@ -21,6 +22,8 @@
   },
   "devDependencies": {
     "typescript": "^5.7.3",
-    "vitest": "^3.0.5"
+    "vitest": "^3.0.5",
+    "firebase-functions-test": "^3.4.0",
+    "firebase-tools": "^13.29.1"
   }
 }

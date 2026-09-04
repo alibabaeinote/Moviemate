@@ -33,6 +33,19 @@ jobs:
         run: npm test
         working-directory: functions
 
+      # The emulator is a Java process.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Runs the real triggers and callables against a real Firestore. This is
+      # where the loop guards are proven — each of these handlers writes back to
+      # the document that triggered it.
+      - name: Integration tests
+        run: npm run test:integration
+        working-directory: functions
+
   rules:
     name: Firestore security rules
     runs-on: ubuntu-latest

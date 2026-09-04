@@ -41,3 +41,4 @@ Thumbs.db
 # Rules tests
 rules-tests/node_modules/
 rules-tests/firestore-debug.log
+functions/integration/firestore-debug.log

@@ -70,17 +70,25 @@ class MovieMateMessagingService : FirebaseMessagingService() {
         // Android 13+ posting without it throws. Checking is not belt-and-braces:
         // a revoked permission is the normal state for anyone who declined the
         // prompt, so this path runs for real users.
-        if (!canPostNotifications()) return
-
-        runCatching {
-            NotificationManagerCompat.from(this).notify(notification.hashCode(), built)
-        }
-    }
-
-    private fun canPostNotifications(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+        //
+        // The check is inline rather than in a helper because lint's MissingPermission
+        // analysis does not follow the check across a function boundary. The
+        // SecurityException catch covers the gap between the check and the post —
+        // the user can revoke the permission in between.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        try {
+            NotificationManagerCompat.from(this).notify(notification.hashCode(), built)
+        } catch (e: SecurityException) {
+            // Permission revoked between the check above and this call. Dropping the
+            // notification is the only correct response; the server has already
+            // recorded that it was sent.
+        }
     }
 
     private fun registerToken(token: String) {

@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -32,7 +32,7 @@ import com.moviemate.app.ui.theme.Space
  */
 private val bottomNavItems = listOf(
     BottomNavItem("Match", Icons.Outlined.DateRange, Routes.MATCH),
-    BottomNavItem("Watchlist", Icons.Outlined.List, Routes.WATCHLIST),
+    BottomNavItem("Watchlist", Icons.AutoMirrored.Outlined.List, Routes.WATCHLIST),
     BottomNavItem("Us", Icons.Outlined.Person, Routes.US),
 )
 

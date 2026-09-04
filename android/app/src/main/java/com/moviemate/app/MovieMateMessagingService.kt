@@ -1,12 +1,16 @@
 package com.moviemate.app
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -62,10 +66,21 @@ class MovieMateMessagingService : FirebaseMessagingService() {
             )
             .build()
 
-        // POST_NOTIFICATIONS may have been revoked since onboarding.
+        // POST_NOTIFICATIONS can be revoked at any time after onboarding, and on
+        // Android 13+ posting without it throws. Checking is not belt-and-braces:
+        // a revoked permission is the normal state for anyone who declined the
+        // prompt, so this path runs for real users.
+        if (!canPostNotifications()) return
+
         runCatching {
             NotificationManagerCompat.from(this).notify(notification.hashCode(), built)
         }
+    }
+
+    private fun canPostNotifications(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
     }
 
     private fun registerToken(token: String) {

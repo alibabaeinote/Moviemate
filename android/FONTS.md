@@ -1,5 +1,9 @@
 # Fonts
 
+> This lives here rather than in `app/src/main/res/font/` because Android's
+> resource merger rejects any file in a `res/font/` directory that is not
+> `.xml`, `.ttf`, `.ttc` or `.otf` — a README there fails the build outright.
+
 Both families ship with the repo — nothing to download.
 
 | File | Family | Licence |
@@ -7,7 +11,8 @@ Both families ship with the repo — nothing to download.
 | `inter_variable.ttf` | Inter | SIL OFL 1.1 |
 | `big_shoulders_display_variable.ttf` | Big Shoulders Display | SIL OFL 1.1 |
 
-Licence texts are in `app/src/main/assets/licenses/`, which is what the OFL
+The font files themselves are in `app/src/main/res/font/`. Licence texts are
+in `app/src/main/assets/licenses/`, which is what the OFL
 requires when the fonts are redistributed inside the APK.
 
 ## Why variable fonts

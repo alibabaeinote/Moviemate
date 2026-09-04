@@ -36,8 +36,11 @@ class PairRepository(
             .call(mapOf("timezone" to TimeZone.getDefault().id))
             .await()
 
+        // getData(), not the `.data` synthetic property: HttpsCallableResult
+        // declares a private field of that name, which Kotlin resolves to
+        // ahead of the getter.
         @Suppress("UNCHECKED_CAST")
-        val data = response.data as Map<String, Any?>
+        val data = response.getData() as Map<String, Any?>
         InviteInfo(
             pairId = data["pairId"] as String,
             inviteCode = data["inviteCode"] as String,
@@ -52,7 +55,7 @@ class PairRepository(
             .await()
 
         @Suppress("UNCHECKED_CAST")
-        val data = response.data as Map<String, Any?>
+        val data = response.getData() as Map<String, Any?>
         data["pairId"] as String
     }
 
@@ -63,7 +66,7 @@ class PairRepository(
         val response = functions.getHttpsCallable("listGenres").call().await()
 
         @Suppress("UNCHECKED_CAST")
-        val data = response.data as Map<String, Any?>
+        val data = response.getData() as Map<String, Any?>
         @Suppress("UNCHECKED_CAST")
         val genres = data["genres"] as List<Map<String, Any?>>
         genres.map { TmdbGenre(id = (it["id"] as Number).toInt(), name = it["name"] as String) }
@@ -81,7 +84,7 @@ class PairRepository(
             .await()
 
         @Suppress("UNCHECKED_CAST")
-        val data = response.data as Map<String, Any?>
+        val data = response.getData() as Map<String, Any?>
         @Suppress("UNCHECKED_CAST")
         val films = data["films"] as List<Map<String, Any?>>
         films.map { film ->

@@ -1,6 +1,7 @@
 package com.moviemate.app.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -42,15 +43,18 @@ import com.moviemate.app.R
  * as a variation axis as well, which is what [FontVariation.Settings] does here.
  * Setting only the FontWeight would render every style at the default instance.
  */
+@OptIn(ExperimentalTextApi::class)
 private fun variableWeight(weight: FontWeight) =
     FontVariation.Settings(FontVariation.weight(weight.weight))
 
+@OptIn(ExperimentalTextApi::class)
 val BigShouldersDisplay = FontFamily(
     Font(R.font.big_shoulders_display_variable, FontWeight.Bold, variationSettings = variableWeight(FontWeight.Bold)),
     Font(R.font.big_shoulders_display_variable, FontWeight.ExtraBold, variationSettings = variableWeight(FontWeight.ExtraBold)),
     Font(R.font.big_shoulders_display_variable, FontWeight.Black, variationSettings = variableWeight(FontWeight.Black)),
 )
 
+@OptIn(ExperimentalTextApi::class)
 val Inter = FontFamily(
     Font(R.font.inter_variable, FontWeight.Normal, variationSettings = variableWeight(FontWeight.Normal)),
     Font(R.font.inter_variable, FontWeight.Medium, variationSettings = variableWeight(FontWeight.Medium)),

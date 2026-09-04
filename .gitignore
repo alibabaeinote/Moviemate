@@ -37,3 +37,7 @@ android/captures/
 Thumbs.db
 .vscode/
 *.iml
+
+# Rules tests
+rules-tests/node_modules/
+rules-tests/firestore-debug.log

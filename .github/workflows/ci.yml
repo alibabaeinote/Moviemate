@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A newer push supersedes an in-flight run on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  functions:
+    name: Cloud Functions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - run: npm ci
+        working-directory: functions
+
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: functions
+
+      - name: Unit tests
+        run: npm test
+        working-directory: functions
+
+  rules:
+    name: Firestore security rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: rules-tests/package-lock.json
+
+      # The Firestore emulator is a Java process.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - run: npm ci
+        working-directory: rules-tests
+
+      # Proves the guarantee the product depends on: neither partner can commit
+      # on the other's behalf.
+      - name: Rules tests
+        run: npm test
+        working-directory: rules-tests
+
+  design-tokens:
+    name: Design tokens
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # No dependencies — the validator is plain Node.
+      - name: Validate tokens
+        run: node design/validate-tokens.mjs
+
+      # The usage table in the design system doc is generated. If regenerating
+      # it produces a diff, the doc is out of date with the tokens.
+      - name: Check the generated usage table is current
+        run: |
+          node design/gen-usage-table.mjs
+          if ! git diff --quiet -- docs/MovieMate-Design-System.md; then
+            echo "::error::The colour usage table is stale. Run 'node design/gen-usage-table.mjs' and commit."
+            git diff -- docs/MovieMate-Design-System.md
+            exit 1
+          fi

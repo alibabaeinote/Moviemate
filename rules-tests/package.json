@@ -1,0 +1,17 @@
+{
+  "name": "moviemate-rules-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Security rules tests. Kept out of functions/ so nothing here ships with a deploy.",
+  "type": "module",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project moviemate-test 'vitest run'",
+    "test:watch": "firebase emulators:exec --only firestore --project moviemate-test 'vitest'"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.2.0",
+    "firebase-tools": "^13.29.1",
+    "vitest": "^3.0.5"
+  }
+}

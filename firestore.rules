@@ -122,10 +122,10 @@ service cloud.firestore {
         // A member may flip their own commit flag, or record the manual
         // "we watched it" confirmation. bothConfirmedAt, score, status and
         // attemptNumber stay server-owned.
-        allow update: if isPairMember(pairData(pairId)) && (
-          commitsOnlyForSelf(pairData(pairId)) ||
-          confirmsWatchedOnly()
-        );
+        //
+        // The pair is fetched once and passed down: every get() in a rule is a
+        // billed document read, and the previous form issued two per write.
+        allow update: if canUpdateMatch(pairId);
 
         allow delete: if false;
       }
@@ -142,8 +142,7 @@ service cloud.firestore {
 
         // "I'm in too" from inside the list — same self-only commit guarantee as
         // matches. status/mutualScore/watchedAt are set by onCommitUpdate.
-        allow update: if isPairMember(pairData(pairId))
-          && commitsOnlyForSelf(pairData(pairId));
+        allow update: if canCommitToWatchlistItem(pairId);
 
         // Either member can remove a film from the shared list.
         allow delete: if isPairMember(pairData(pairId));
@@ -163,6 +162,19 @@ service cloud.firestore {
     }
 
     // ---------- Commit helpers ----------
+
+    // Each of these binds the pair document once, so a write costs a single
+    // get() rather than one per helper call.
+    function canUpdateMatch(pairId) {
+      let p = pairData(pairId);
+      return isPairMember(p) && (commitsOnlyForSelf(p) || confirmsWatchedOnly());
+    }
+
+    function canCommitToWatchlistItem(pairId) {
+      let p = pairData(pairId);
+      return isPairMember(p) && commitsOnlyForSelf(p);
+    }
+
     // The caller may only raise their OWN commit flag; the partner's flag must be
     // byte-identical to what was already stored. This is what stops one person
     // confirming a mutual commitment on their own (PRD §7.2).
@@ -182,9 +194,22 @@ service cloud.firestore {
     }
 
     // Manual "We watched it" — explicitly manual, never inferred (PRD §10).
+    //
+    // The `is timestamp` guard is defensive: it makes the type explicit before
+    // the comparison rather than relying on the comparison to reject a
+    // non-timestamp.
+    //
+    // KNOWN, UNEXPLAINED: the emulator logs "evaluation error at <this rule>"
+    // alongside a correct `false` on every DENIED update to a match. Both a
+    // single-get() refactor and this type guard were tried and neither removed
+    // it. It is not a correctness problem — rules deny on an evaluation error,
+    // and rules-tests/ proves every allow and deny behaves as intended — but it
+    // means a genuine rule error here would hide in the noise. Worth another
+    // look before launch.
     function confirmsWatchedOnly() {
       return changedKeys().hasOnly(['watchedConfirmedAt'])
         && resource.data.watchedConfirmedAt == null
+        && request.resource.data.watchedConfirmedAt is timestamp
         && request.resource.data.watchedConfirmedAt == request.time;
     }
   }

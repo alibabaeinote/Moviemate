@@ -14,6 +14,7 @@ import {
   seed,
 } from "./helpers";
 import { rejectMatch } from "../src/callable/rejectMatch";
+import { chooseFallbackFilm } from "../src/callable/chooseFallbackFilm";
 import { createPair } from "../src/callable/createPair";
 import { joinPair } from "../src/callable/joinPair";
 
@@ -250,5 +251,84 @@ describe("pairing", () => {
   it("refuses to pair someone who is already paired", async () => {
     await seed();
     await expect(create({ data: {}, auth: { uid: ALI } } as never)).rejects.toThrow();
+  });
+});
+
+describe("chooseFallbackFilm — the 3-up last resort", () => {
+  const choose = fft.wrap(chooseFallbackFilm);
+
+  const call = (filmId: string, uid = ALI) =>
+    choose({ data: { pairId: PAIR, matchId: "match_1", filmId }, auth: { uid } } as never);
+
+  beforeEach(async () => {
+    await seed();
+  });
+
+  it("reopens the match on the chosen film", async () => {
+    await db()
+      .doc(matchPath("match_1"))
+      .set(matchDoc({ shortlist, status: "dismissed", fallbackUnlocked: true }));
+
+    await call(FILM_B);
+
+    const match = await readMatch();
+    expect(match).toMatchObject({
+      filmId: FILM_B,
+      score: 84,
+      status: "suggested",
+      fallbackUnlocked: false,
+    });
+  });
+
+  /**
+   * Choosing is not consenting. If the flags carried over, whichever partner
+   * opened the fallback screen would have committed them both to a film the
+   * other has not seen.
+   */
+  it("clears both commit flags so the pair still has to agree", async () => {
+    await db()
+      .doc(matchPath("match_1"))
+      .set(
+        matchDoc({
+          shortlist,
+          status: "dismissed",
+          fallbackUnlocked: true,
+          commitStatus: { userA: true, userB: true },
+          bothConfirmedAt: Timestamp.now(),
+        })
+      );
+
+    await call(FILM_B);
+
+    const match = await readMatch();
+    expect(match).toMatchObject({
+      commitStatus: { userA: false, userB: false },
+      bothConfirmedAt: null,
+    });
+  });
+
+  /** The menu is a last resort, not the opening move (PRD §7.1). */
+  it("refuses while the one-at-a-time sequence is still running", async () => {
+    await db()
+      .doc(matchPath("match_1"))
+      .set(matchDoc({ shortlist, fallbackUnlocked: false }));
+
+    await expect(call(FILM_B)).rejects.toThrow(/aren't open yet/);
+  });
+
+  it("refuses a film that is not on today's shortlist", async () => {
+    await db()
+      .doc(matchPath("match_1"))
+      .set(matchDoc({ shortlist, status: "dismissed", fallbackUnlocked: true }));
+
+    await expect(call("not_on_the_list")).rejects.toThrow(/isn't one of today's options/);
+  });
+
+  it("refuses someone who is not in the pair", async () => {
+    await db()
+      .doc(matchPath("match_1"))
+      .set(matchDoc({ shortlist, status: "dismissed", fallbackUnlocked: true }));
+
+    await expect(call(FILM_B, "stranger")).rejects.toThrow();
   });
 });

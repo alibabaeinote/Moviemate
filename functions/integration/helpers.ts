@@ -107,6 +107,7 @@ export interface MatchSeed {
   bothConfirmedAt?: Timestamp | null;
   watchedConfirmedAt?: Timestamp | null;
   shortlist?: Array<{ filmId: string; score: number; reason: string }>;
+  fallbackUnlocked?: boolean;
 }
 
 export function matchDoc(over: MatchSeed = {}) {
@@ -121,6 +122,7 @@ export function matchDoc(over: MatchSeed = {}) {
     bothConfirmedAt: null,
     watchedConfirmedAt: null,
     shortlist: [],
+    fallbackUnlocked: false,
     ...over,
   };
 }

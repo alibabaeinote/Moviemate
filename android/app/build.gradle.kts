@@ -49,6 +49,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        unitTests {
+            // Without this, every android.jar stub the JVM tests touch throws
+            // "Stub!" — including ones reached indirectly, such as Firebase's
+            // Timestamp implementing Parcelable. Returning defaults keeps the
+            // pure logic under test testable without a device.
+            isReturnDefaultValues = true
+        }
+    }
+
     kotlinOptions {
         jvmTarget = "17"
     }

@@ -84,6 +84,27 @@ export interface MatchDoc {
   shortlist: ShortlistEntry[];
   /** Set when no candidate cleared noMatchThreshold (ALI-73 "No matches"). */
   noMatchesReason?: string;
+
+  /**
+   * The one-at-a-time sequence is spent, so the 3-up fallback screen may open
+   * (PRD §7.1). Set by rejectMatch, cleared by chooseFallbackFilm.
+   */
+  fallbackUnlocked?: boolean;
+
+  /** When the sequence was exhausted or the pair passed on the day. */
+  dismissedAt?: Timestamp | null;
+
+  /**
+   * The agreed watch time, set by scheduleWatch.
+   *
+   * Not in the schema doc — it describes a "Suggested time" card and a
+   * 15-minute reminder without saying where the time lives. See README
+   * §Deviations.
+   */
+  scheduledFor?: Timestamp | null;
+
+  /** Guards sendWatchReminders against sending the same reminder twice. */
+  reminderSent?: boolean;
 }
 
 export interface ShortlistEntry {

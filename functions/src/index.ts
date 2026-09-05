@@ -21,6 +21,7 @@ export { listGenres, getOnboardingFilms } from "./callable/onboardingFilms";
 // Daily match lifecycle
 export { generateDailyMatch } from "./scheduled/generateDailyMatch";
 export { rejectMatch } from "./callable/rejectMatch";
+export { chooseFallbackFilm } from "./callable/chooseFallbackFilm";
 export { scheduleWatch } from "./callable/scheduleWatch";
 
 // Firestore triggers

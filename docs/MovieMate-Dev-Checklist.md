@@ -72,6 +72,7 @@
 | `onRatingComplete` → `aBothOnboarded` | 🟡 |
 | `onCommitUpdate` → `bothConfirmedAt` | 🟡 |
 | `rejectMatch` (fallback پی‌درپی ۱→۲→۳) | 🟡 |
+| `chooseFallbackFilm` (انتخاب از صفحه‌ی ۳تایی) | ✅ ۵ تست |
 | `createPair` / `joinPair` (کد دعوت + انقضا) | 🟡 |
 | `refreshTmdbCache` / `expireInviteCodes` | 🟡 |
 | `onMatchUpdate` (commit + watched + streak + promote) | 🟡 |

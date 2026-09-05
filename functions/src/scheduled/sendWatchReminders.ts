@@ -34,7 +34,7 @@ export const sendWatchReminders = onSchedule(
 
     let sent = 0;
     for (const doc of due.docs) {
-      const match = doc.data() as MatchDoc & { scheduledFor?: Timestamp };
+      const match = doc.data() as MatchDoc;
       // pairs/{pairId}/matches/{matchId}
       const pairId = doc.ref.parent.parent?.id;
       if (!pairId) continue;

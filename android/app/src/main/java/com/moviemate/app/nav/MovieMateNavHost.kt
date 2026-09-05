@@ -15,7 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.NavType
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.navArgument
 import com.moviemate.app.ui.components.BottomNavItem
 import com.moviemate.app.ui.components.MovieMateBottomNav
 import com.moviemate.app.ui.screens.PlaceholderScreen
@@ -27,6 +29,9 @@ import com.moviemate.app.ui.screens.onboarding.InvitePartnerScreen
 import com.moviemate.app.ui.screens.onboarding.JoinPartnerScreen
 import com.moviemate.app.ui.screens.onboarding.NotificationPermissionScreen
 import com.moviemate.app.ui.screens.onboarding.OnboardingRateScreen
+import com.moviemate.app.ui.screens.match.MatchScreen
+import com.moviemate.app.ui.screens.match.RateWatchedScreen
+import com.moviemate.app.ui.screens.match.ScheduleWatchScreen
 import com.moviemate.app.ui.screens.onboarding.WaitingForPartnerScreen
 import com.moviemate.app.ui.theme.Space
 
@@ -90,7 +95,7 @@ fun MovieMateNavHost(
             }
             authGraph(navController)
             onboardingGraph(navController)
-            mainGraph()
+            mainGraph(navController)
         }
     }
 }
@@ -175,9 +180,12 @@ private fun NavHostController.replaceWith(route: String) {
     }
 }
 
-private fun androidx.navigation.NavGraphBuilder.mainGraph() {
+private fun androidx.navigation.NavGraphBuilder.mainGraph(navController: NavHostController) {
     composable(Routes.MATCH) {
-        PlaceholderScreen("Tonight's match", "Match card with mutual We're in")
+        MatchScreen(
+            onRateWatched = { navController.navigate(Routes.rateWatched(it)) },
+            onScheduleWatch = { navController.navigate(Routes.reminder(it)) },
+        )
     }
     composable(Routes.WATCHLIST) {
         PlaceholderScreen("Watchlist", "Ready / Waiting on you / Watched")
@@ -185,10 +193,25 @@ private fun androidx.navigation.NavGraphBuilder.mainGraph() {
     composable(Routes.US) {
         PlaceholderScreen("Us", "Streak, journey, compatibility, settings")
     }
-    composable(Routes.REMINDER) {
-        PlaceholderScreen("You're both set", "Suggested time + reminder")
+
+    // These two stack on the Match tab rather than replacing it: they are
+    // steps within today's match, and backing out belongs on the card.
+    composable(
+        route = Routes.REMINDER,
+        arguments = listOf(navArgument(Routes.ARG_MATCH_ID) { type = NavType.StringType }),
+    ) { entry ->
+        ScheduleWatchScreen(
+            matchId = entry.arguments?.getString(Routes.ARG_MATCH_ID).orEmpty(),
+            onDone = { navController.popBackStack() },
+        )
     }
-    composable(Routes.RATE_WATCHED) {
-        PlaceholderScreen("How was it?", "Taste Dial, both partners")
+    composable(
+        route = Routes.RATE_WATCHED,
+        arguments = listOf(navArgument(Routes.ARG_MATCH_ID) { type = NavType.StringType }),
+    ) { entry ->
+        RateWatchedScreen(
+            matchId = entry.arguments?.getString(Routes.ARG_MATCH_ID).orEmpty(),
+            onDone = { navController.popBackStack() },
+        )
     }
 }

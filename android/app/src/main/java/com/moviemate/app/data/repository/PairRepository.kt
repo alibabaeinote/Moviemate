@@ -191,6 +191,24 @@ class PairRepository(
         Unit
     }
 
+    /**
+     * Pick one of the three films on the fallback screen.
+     *
+     * A callable rather than a direct write because `filmId` is closed to
+     * clients on purpose — it is shared state, and either partner rewriting it
+     * would change the film out from under the other's commitment.
+     */
+    suspend fun chooseFallbackFilm(
+        pairId: String,
+        matchId: String,
+        filmId: String,
+    ): Result<Unit> = runCatching {
+        functions.getHttpsCallable("chooseFallbackFilm")
+            .call(mapOf("pairId" to pairId, "matchId" to matchId, "filmId" to filmId))
+            .await()
+        Unit
+    }
+
     suspend fun scheduleWatch(
         pairId: String,
         matchId: String,

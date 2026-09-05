@@ -73,5 +73,22 @@ class AuthRepository(
         return user.isEmailVerified
     }
 
+    /**
+     * Notification preferences.
+     *
+     * `notificationSettings` is one of the six fields the security rules let a
+     * user write on their own document; pairId, onboardingComplete and
+     * ratingCount are owned by Cloud Functions and a write here would be
+     * rejected outright.
+     */
+    suspend fun updateNotificationSettings(
+        uid: String,
+        settings: NotificationSettings,
+    ): Result<Unit> = runCatching {
+        firestore.collection("users").document(uid)
+            .update("notificationSettings", settings)
+            .await()
+    }
+
     fun signOut() = auth.signOut()
 }

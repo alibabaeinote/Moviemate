@@ -20,7 +20,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.moviemate.app.ui.components.BottomNavItem
 import com.moviemate.app.ui.components.MovieMateBottomNav
-import com.moviemate.app.ui.screens.PlaceholderScreen
 import com.moviemate.app.ui.screens.auth.ForgotPasswordScreen
 import com.moviemate.app.ui.screens.auth.SignInScreen
 import com.moviemate.app.ui.screens.auth.SignUpScreen
@@ -33,6 +32,8 @@ import com.moviemate.app.ui.screens.match.MatchScreen
 import com.moviemate.app.ui.screens.match.RateWatchedScreen
 import com.moviemate.app.ui.screens.match.ScheduleWatchScreen
 import com.moviemate.app.ui.screens.onboarding.WaitingForPartnerScreen
+import com.moviemate.app.ui.screens.us.UsScreen
+import com.moviemate.app.ui.screens.watchlist.WatchlistScreen
 import com.moviemate.app.ui.theme.Space
 
 /**
@@ -188,10 +189,18 @@ private fun androidx.navigation.NavGraphBuilder.mainGraph(navController: NavHost
         )
     }
     composable(Routes.WATCHLIST) {
-        PlaceholderScreen("Watchlist", "Ready / Waiting on you / Watched")
+        WatchlistScreen()
     }
     composable(Routes.US) {
-        PlaceholderScreen("Us", "Streak, journey, compatibility, settings")
+        UsScreen(
+            // Clear the whole graph: signing out must not leave a tab holding a
+            // Firestore listener for a pair this device can no longer read.
+            onSignedOut = {
+                navController.navigate(Routes.WELCOME) {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                }
+            },
+        )
     }
 
     // These two stack on the Match tab rather than replacing it: they are

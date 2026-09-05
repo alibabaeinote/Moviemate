@@ -77,6 +77,7 @@
 | `refreshTmdbCache` / `expireInviteCodes` | 🟡 |
 | `onMatchUpdate` (commit + watched + streak + promote) | 🟡 |
 | `listGenres` / `getOnboardingFilms` (دک onboarding) | 🟡 |
+| `searchFilms` (جست‌وجوی دستی Watchlist، §7.4 مورد ۴) | ✅ ۳ تست guard |
 | ۷ نوع نوتیفیکیشن + frequency cap | 🟡 (منطق cap ✅ تست شده) |
 
 ### ✅ شکاف‌های بک‌اند — بسته شدند

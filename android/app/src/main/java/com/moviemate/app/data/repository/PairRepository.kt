@@ -1,9 +1,11 @@
 package com.moviemate.app.data.repository
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.functions.FirebaseFunctions
+import com.moviemate.app.data.model.CommitStatus
 import com.moviemate.app.data.model.Match
 import com.moviemate.app.data.model.Pair
 import com.moviemate.app.data.model.Rating
@@ -27,6 +29,9 @@ class PairRepository(
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance("europe-west1"),
 ) {
     private fun pairDoc(pairId: String) = firestore.collection("pairs").document(pairId)
+
+    /** Lower bound for "this timestamp is set". See pairTotals. */
+    private val EPOCH = Timestamp(0, 0)
 
     // ---------- Pairing ----------
 
@@ -100,6 +105,36 @@ class PairRepository(
         }
     }
 
+    /**
+     * Manual film search for the Watchlist.
+     *
+     * Goes through the callable rather than TMDB directly: the result has to be
+     * written into filmCache for anything to resolve it later, and clients
+     * cannot write filmCache.
+     */
+    suspend fun searchFilms(query: String): Result<List<DeckFilm>> = runCatching {
+        val response = functions
+            .getHttpsCallable("searchFilms")
+            .call(mapOf("query" to query))
+            .await()
+
+        @Suppress("UNCHECKED_CAST")
+        val data = response.getData() as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val films = data["films"] as List<Map<String, Any?>>
+        films.map { film ->
+            @Suppress("UNCHECKED_CAST")
+            DeckFilm(
+                filmId = film["filmId"] as String,
+                title = film["title"] as String,
+                posterPath = film["posterPath"] as String?,
+                genres = (film["genres"] as? List<String>).orEmpty(),
+                releaseYear = (film["releaseYear"] as Number).toInt(),
+                overview = film["overview"] as? String ?: "",
+            )
+        }
+    }
+
     // ---------- Live reads ----------
 
     fun observeUser(uid: String): Flow<User?> = callbackFlow {
@@ -134,6 +169,56 @@ class PairRepository(
                 trySend(snapshot?.toObjects(WatchlistItem::class.java) ?: emptyList())
             }
         awaitClose { registration.remove() }
+    }
+
+    /**
+     * Both partners' scores for one film, keyed by uid.
+     *
+     * The Watchlist shows two markers on a single shared axis rather than two
+     * separate numbers (PRD §7.4 item 6), which needs the individual scores —
+     * the item's stored mutualScore is already collapsed to one figure.
+     */
+    suspend fun ratingsForFilm(pairId: String, filmId: String): Map<String, Double> =
+        runCatching {
+            pairDoc(pairId).collection("ratings")
+                .whereEqualTo("filmId", filmId)
+                .get().await()
+                .toObjects(Rating::class.java)
+                .associate { it.userId to it.score }
+        }.getOrDefault(emptyMap())
+
+    /**
+     * How many matches both partners committed to, and how many they watched.
+     *
+     * Aggregate queries, not a full read of the collection: this is one billed
+     * count per figure instead of one read per match document, and the number
+     * grows by one a day forever.
+     *
+     * "Match" here means both said "We're in" — PRD §9 is explicit that a
+     * suggestion nobody confirmed is not a match, because the count of
+     * algorithm suggestions only measures how many days the app has been
+     * installed.
+     *
+     * The "is set" test is a range filter rather than `!= null`: Firestore
+     * accepts null only with equality, and a range filter also restricts
+     * results to the operand's type, so unconfirmed matches — which carry an
+     * explicit null — fall outside it.
+     */
+    suspend fun pairTotals(pairId: String): PairTotals = runCatching {
+        val matches = pairDoc(pairId).collection("matches")
+        val confirmed = matches
+            .whereGreaterThan("bothConfirmedAt", EPOCH)
+            .count().get(AggregateSource.SERVER).await().count
+        val watched = matches
+            .whereGreaterThan("watchedConfirmedAt", EPOCH)
+            .count().get(AggregateSource.SERVER).await().count
+
+        PairTotals(matches = confirmed.toInt(), watched = watched.toInt())
+    }.getOrDefault(PairTotals())
+
+    /** Either member may remove a film from the shared list. */
+    suspend fun deleteWatchlistItem(pairId: String, itemId: String): Result<Unit> = runCatching {
+        pairDoc(pairId).collection("watchlist").document(itemId).delete().await()
     }
 
     // ---------- Writes the rules allow directly ----------
@@ -226,22 +311,38 @@ class PairRepository(
         Unit
     }
 
+    /**
+     * Add a film someone searched for, already committed on their own side.
+     *
+     * The adder's commit flag is set in the create rather than in a follow-up
+     * write: proposing a film to your partner *is* saying you want to watch it,
+     * and the rules constrain only status, watchedAt and mutualScore on create.
+     * One write instead of two, and no window where the list shows a film
+     * nobody appears to want.
+     */
     suspend fun addToWatchlist(
         pairId: String,
         uid: String,
         filmId: String,
-    ): Result<Unit> = runCatching {
+        isUserA: Boolean,
+    ): Result<String> = runCatching {
         val item = WatchlistItem(
             filmId = filmId,
             addedBy = uid,
             addedAt = Timestamp.now(),
             source = "manual_search",
             status = "waiting",
+            // Only the adder's own seat. Written out rather than as a pair of
+            // negations, because setting the other side here is precisely the
+            // bug commitsOnlyForSelf() exists to stop.
+            commitStatus = CommitStatus(
+                userA = isUserA,
+                userB = !isUserA,
+            ),
             watchedAt = null,
             mutualScore = null,
         )
-        pairDoc(pairId).collection("watchlist").add(item).await()
-        Unit
+        pairDoc(pairId).collection("watchlist").add(item).await().id
     }
 
     /** "I'm in too", straight from the list row (PRD §7.4 item 3). */
@@ -254,6 +355,12 @@ class PairRepository(
         pairDoc(pairId).collection("watchlist").document(itemId).update(field, true).await()
     }
 }
+
+/** Headline numbers for the Us screen. */
+data class PairTotals(
+    val matches: Int = 0,
+    val watched: Int = 0,
+)
 
 data class InviteInfo(
     val pairId: String,

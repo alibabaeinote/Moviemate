@@ -18,6 +18,9 @@ export { joinPair } from "./callable/joinPair";
 // Onboarding content
 export { listGenres, getOnboardingFilms } from "./callable/onboardingFilms";
 
+// Watchlist
+export { searchFilms } from "./callable/searchFilms";
+
 // Daily match lifecycle
 export { generateDailyMatch } from "./scheduled/generateDailyMatch";
 export { rejectMatch } from "./callable/rejectMatch";

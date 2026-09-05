@@ -15,6 +15,7 @@ import {
 } from "./helpers";
 import { rejectMatch } from "../src/callable/rejectMatch";
 import { chooseFallbackFilm } from "../src/callable/chooseFallbackFilm";
+import { searchFilms } from "../src/callable/searchFilms";
 import { createPair } from "../src/callable/createPair";
 import { joinPair } from "../src/callable/joinPair";
 
@@ -330,5 +331,32 @@ describe("chooseFallbackFilm — the 3-up last resort", () => {
       .set(matchDoc({ shortlist, status: "dismissed", fallbackUnlocked: true }));
 
     await expect(call(FILM_B, "stranger")).rejects.toThrow();
+  });
+});
+
+/**
+ * Only the guards that run before the TMDB call.
+ *
+ * This suite reaches no network by design — every film it needs is seeded into
+ * filmCache — so the search-and-cache path itself is not covered here. What is
+ * covered is what rejects a request before it can cost a TMDB call.
+ */
+describe("searchFilms — guards", () => {
+  const search = fft.wrap(searchFilms);
+
+  it("refuses an unauthenticated caller", async () => {
+    await expect(search({ data: { query: "dune" } } as never)).rejects.toThrow(/Sign in/);
+  });
+
+  it("refuses a query too short to mean anything", async () => {
+    await expect(
+      search({ data: { query: "d" }, auth: { uid: ALI } } as never)
+    ).rejects.toThrow(/at least two characters/);
+  });
+
+  it("treats whitespace as empty", async () => {
+    await expect(
+      search({ data: { query: "   " }, auth: { uid: ALI } } as never)
+    ).rejects.toThrow(/at least two characters/);
   });
 });

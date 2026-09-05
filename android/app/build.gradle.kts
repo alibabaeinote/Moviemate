@@ -1,21 +1,9 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.google.services)
 }
-
-// TMDB key is read from local.properties (git-ignored) so it never lands in
-// version control. CI injects it as an environment variable instead.
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
-}
-val tmdbAccessToken: String =
-    (localProperties.getProperty("TMDB_ACCESS_TOKEN") ?: System.getenv("TMDB_ACCESS_TOKEN") ?: "")
 
 android {
     namespace = "com.moviemate.app"
@@ -30,7 +18,6 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "TMDB_ACCESS_TOKEN", "\"$tmdbAccessToken\"")
     }
 
     buildTypes {
@@ -98,9 +85,6 @@ dependencies {
     implementation(libs.firebase.messaging)
 
     implementation(libs.coil.compose)
-    implementation(libs.retrofit)
-    implementation(libs.okhttp.logging)
-    implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
 

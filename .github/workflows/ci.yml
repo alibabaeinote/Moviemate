@@ -125,9 +125,6 @@ jobs:
       - name: Provide placeholder Firebase config
         run: cp android/app/google-services.ci.json android/app/google-services.json
 
-      # TMDB_ACCESS_TOKEN is read into BuildConfig. Empty is fine for a compile;
-      # TmdbApi checks for blank at call time and fails loudly rather than
-      # sending an unauthenticated request.
       - name: Compile and lint
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug lintDebug

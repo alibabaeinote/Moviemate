@@ -83,6 +83,21 @@ class AuthRepository(
         }
 
     /**
+     * Notification preferences.
+     *
+     * One of the fields the security rules let a user write on their own
+     * document — everything else there is owned by Cloud Functions.
+     */
+    suspend fun updateNotificationSettings(
+        uid: String,
+        settings: NotificationSettings,
+    ): Result<Unit> = runCatching {
+        firestore.collection("users").document(uid)
+            .update("notificationSettings", settings)
+            .await()
+    }
+
+    /**
      * Upload the picked image and return its download URL.
      *
      * One fixed object per user (`avatars/{uid}/profile.jpg`) rather than a

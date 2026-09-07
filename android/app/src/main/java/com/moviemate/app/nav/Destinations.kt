@@ -13,10 +13,6 @@ object Routes {
     const val ROUTING = "routing"
 
     const val WELCOME = "welcome"
-    const val SIGN_UP = "signUp"
-    const val SIGN_IN = "signIn"
-    const val FORGOT_PASSWORD = "forgotPassword"
-    const val VERIFY_EMAIL = "verifyEmail"
 
     const val ONBOARDING_RATE = "onboarding/rate"
     const val INVITE_PARTNER = "onboarding/invite"
@@ -39,6 +35,7 @@ object Routes {
 
     const val SETTINGS = "us/settings"
     const val ABOUT = "us/about"
+    const val PROFILE_EDIT = "us/profile"
 
     fun reminder(matchId: String) = "reminder/$matchId"
 

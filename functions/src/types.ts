@@ -14,7 +14,6 @@ export interface UserDoc {
   uid: string;
   name: string;
   email: string;
-  emailVerified: boolean;
   createdAt: Timestamp;
   pairId: string | null;
   onboardingComplete: boolean;
@@ -26,6 +25,12 @@ export interface UserDoc {
   timezone: string;
   /** Used by the frequency cap to skip notifying someone already in the app. */
   lastActiveAt: Timestamp | null;
+  /**
+   * Firebase Storage download URL, or null before the user ever sets one.
+   * Client-owned (self-serve edit in the profile screen), unlike every other
+   * field on this document.
+   */
+  avatarUrl: string | null;
 }
 
 export type PairStatus = "waiting_partner" | "both_rating" | "active";
@@ -45,6 +50,18 @@ export interface PairDoc {
   lastWatchAt: Timestamp | null;
   /** Copied from the creator so the scheduler can run at each pair's local 9am. */
   timezone: string;
+
+  /**
+   * Denormalized from users/{uid}.name and .avatarUrl, kept in sync by
+   * onUserProfileUpdated. The security rules let a user read only their own
+   * user document (`request.auth.uid == userId`), so without a copy here the
+   * Us screen would have no way to show the partner's name or picture at all.
+   * Seeded at createPair/joinPair time, then kept current on every profile edit.
+   */
+  userAName?: string;
+  userAAvatarUrl?: string | null;
+  userBName?: string;
+  userBAvatarUrl?: string | null;
 }
 
 /** pairs/{pairId}/ratings/{ratingId} — id convention: `${userId}_${filmId}` */

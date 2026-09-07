@@ -36,6 +36,12 @@ data class UsStats(
     val watched: Int,
     val notificationSettings: NotificationSettings,
     val partnerJoined: Boolean,
+    val myName: String,
+    val myAvatarUrl: String?,
+    val partnerName: String?,
+    val partnerAvatarUrl: String?,
+    /** Picks which of the two fixed partner colors rings each avatar. */
+    val isUserA: Boolean,
 )
 
 class UsViewModel(
@@ -98,6 +104,11 @@ class UsViewModel(
                 notificationSettings = current.user?.notificationSettings
                     ?: NotificationSettings(),
                 partnerJoined = current.partnerJoined,
+                myName = current.displayName ?: "You",
+                myAvatarUrl = current.avatarUrl,
+                partnerName = current.partnerName,
+                partnerAvatarUrl = current.partnerAvatarUrl,
+                isUserA = current.isUserA,
             ),
         )
     }

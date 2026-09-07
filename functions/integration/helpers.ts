@@ -23,6 +23,8 @@ export const db = () => getFirestore();
 
 export const matchPath = (matchId: string) => `pairs/${PAIR}/matches/${matchId}`;
 export const watchlistPath = (itemId: string) => `pairs/${PAIR}/watchlist/${itemId}`;
+export const userPath = (uid: string) => `users/${uid}`;
+export const pairPath = (pairId: string = PAIR) => `pairs/${pairId}`;
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -52,7 +54,6 @@ export async function seed(options: SeedOptions = {}): Promise<void> {
     uid,
     name,
     email: `${name.toLowerCase()}@example.com`,
-    emailVerified: true,
     createdAt: Timestamp.now(),
     pairId: PAIR,
     onboardingComplete: done,
@@ -62,6 +63,7 @@ export async function seed(options: SeedOptions = {}): Promise<void> {
     notificationSettings: { dailyMatch: true, partnerActivity: true, reminders: true },
     timezone,
     lastActiveAt: null,
+    avatarUrl: null,
   });
 
   await store.doc(`users/${ALI}`).set(user(ALI, "Ali", onboardingComplete.ali));

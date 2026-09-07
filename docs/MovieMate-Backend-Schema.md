@@ -8,18 +8,21 @@
 
 ## ۱. Firebase Auth
 
-### تصمیم قفل‌شده (طبق PRD بخش ۱۲)
-- **فقط Email/Password در v1** — Social login (Google/Apple) هنوز open question است و به v1.5/v2 موکول شده
-- هر کاربر یک Firebase Auth UID مستقل دارد، حتی اگر عضو یک pair باشد
+### [UPDATE] تصمیم به‌روزشده — Google Sign-In
+Email/Password اصلاً پیاده نشد؛ v1 مستقیم با **Google Sign-In** ساخته شد (Credential
+Manager سمت اندروید، `GoogleAuthProvider` سمت Firebase). جایگزین کامل بود، نه گزینه‌ی
+دوم کنار Email/Password — یعنی فقط یک مسیر auth، بدون بازیابی رمز عبور یا verify-email.
+هر کاربر همچنان یک Firebase Auth UID مستقل دارد، حتی اگر عضو یک pair باشد.
 
-### چرا نه Social Login در v1
-کاهش پیچیدگی اولیه — یک flow واحد auth یعنی تست/دیباگ ساده‌تر برای MVP. این محدودیت دائمی نیست.
+### چرا Google از ابتدا
+یک flow واحد auth یعنی تست/دیباگ ساده‌تر، و حساب گوگل از قبل verify شده است — نیازی به
+مرحله‌ی جداگانه‌ی verify-email نیست. Apple Sign-In همچنان یک تصمیم باز است.
 
-### Auth Rules (خلاصه)
+### Auth Rules (خلاصه) — [UPDATE]
 ```
-- ایمیل باید verify شود قبل از دسترسی به rating/matching (جلوگیری از حساب‌های جعلی)
-- Reset password استاندارد Firebase
-- هیچ داده‌ی حساس (رمز عبور و غیره) خارج از Firebase Auth ذخیره نمی‌شود
+- verify ایمیل و reset password هر دو منتفی شدند — Google خودش verify می‌کند و رمز
+  عبوری برای این اپ اصلاً وجود ندارد
+- هیچ داده‌ی حساس (توکن و غیره) خارج از Firebase Auth ذخیره نمی‌شود
 ```
 
 ---

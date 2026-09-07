@@ -62,7 +62,7 @@
 - Matching با غریبه / کشف دوست جدید (Phase 2)
 - بیش از ۲ نفر در یک پروفایل مشترک
 - iOS (فقط Android در v1)
-- ورود اجتماعی (Google/Apple Sign-In) — تصمیم باز، پیش‌فرض: فقط Email/Password در v1
+- ورود اجتماعی (Google/Apple Sign-In) — تصمیم باز، پیش‌فرض: فقط Email/Password در v1 **[UPDATE] بسته شد در v1 — Google Sign-In جایگزین کامل Email/Password شد (نه اضافه‌شده کنارش)؛ Apple هنوز باز است.**
 - تماشای هم‌زمان داخل اپ (in-app sync watch / watch party)
 - چت کامل بین دو کاربر (فقط quick reaction کوتاه، نه chat thread)
 - زیرنویس یا لینک مستقیم به سرویس‌های streaming
@@ -259,7 +259,7 @@ v1 وقتی "آماده" حساب میشه که همه‌ی موارد زیر ب
 
 | سوال | وضعیت |
 |---|---|
-| Social login (Google/Apple)? | باز — پیش‌فرض فعلی: فقط Email/Password |
+| Social login (Google/Apple)? | ✅ **نیمه بسته شد** — Google Sign-In جایگزین کامل Email/Password شد. Apple همچنان باز است. |
 | رفتار آفلاین برای rating؟ | باز |
 | ~~Cache کردن TMDB metadata؟~~ | ✅ **بسته شد** — بله، حداکثر ۶ ماه (الزام TMDB Terms of Use)، نه تصمیم دلخواه |
 | Haptic feedback در swipe؟ | باز |

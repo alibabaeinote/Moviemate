@@ -55,12 +55,15 @@ service cloud.firestore {
         && request.resource.data.onboardingComplete == false
         && request.resource.data.ratingCount == 0;
 
-      // Whitelist: everything else (pairId, onboardingComplete, ratingCount,
-      // emailVerified) is owned by Cloud Functions.
+      // Whitelist: everything else (pairId, onboardingComplete, ratingCount)
+      // is owned by Cloud Functions. 'name' and 'avatarUrl' are self-serve
+      // profile edits — see the profile screen — and onUserProfileUpdated
+      // copies both onto the shared pair document so the partner can see them.
       allow update: if isSignedIn()
         && request.auth.uid == userId
         && changedKeys().hasOnly([
              'name',
+             'avatarUrl',
              'fcmTokens',
              'fcmTokenUpdatedAt',
              'notificationSettings',

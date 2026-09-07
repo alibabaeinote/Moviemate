@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Avatar images only. Everything else this app needs (film metadata, posters)
+// comes from filmCache in Firestore / TMDB's own CDN, not from our bucket.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // avatars/{uid}/profile.jpg — path convention enforced below, not just by
+    // the client. One object per user: a re-upload overwrites it, so a stale
+    // avatar is never left behind for the download URL to keep pointing at.
+    match /avatars/{uid}/{fileName} {
+      // Avatars are not sensitive; any signed-in user may read one — in
+      // particular, a partner reading your avatarUrl from the shared pair
+      // document (see onUserProfileUpdated) needs this to resolve.
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && fileName == 'profile.jpg'
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

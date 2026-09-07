@@ -117,7 +117,6 @@ describe("pairing", () => {
       uid,
       name,
       email: `${name}@example.com`,
-      emailVerified: true,
       createdAt: Timestamp.now(),
       pairId: null,
       onboardingComplete: false,
@@ -127,6 +126,7 @@ describe("pairing", () => {
       notificationSettings: { dailyMatch: true, partnerActivity: true, reminders: true },
       timezone: "UTC",
       lastActiveAt: null,
+      avatarUrl: null,
     });
   }
 
@@ -149,6 +149,10 @@ describe("pairing", () => {
       aBothOnboarded: false,
       streakCount: 0,
       timezone: "Europe/Berlin",
+      // Seeded from the creator's own profile so the pair document reads
+      // correctly from day one — not left blank until their next edit.
+      userAName: "Ali",
+      userAAvatarUrl: null,
     });
     expect((await db().doc(`users/${ALI}`).get()).data()?.pairId).toBe(result.pairId);
   });
@@ -181,6 +185,8 @@ describe("pairing", () => {
     const pair = (await db().doc(`pairs/${created.pairId}`).get()).data();
     expect(pair?.userB).toBe(SARA);
     expect(pair?.status).toBe("both_rating");
+    expect(pair?.userBName).toBe("Sara");
+    expect(pair?.userBAvatarUrl).toBe(null);
     expect((await db().doc(`users/${SARA}`).get()).data()?.pairId).toBe(created.pairId);
   });
 

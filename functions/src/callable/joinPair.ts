@@ -59,6 +59,10 @@ export const joinPair = onCall<{ inviteCode: string; timezone?: string }>(async 
       userB: uid,
       status: "both_rating",
       joinedAt: Timestamp.now(),
+      // Seeded from the joiner's current profile — see createPair for why this
+      // can't simply wait on onUserProfileUpdated's next edit.
+      userBName: user.name,
+      userBAvatarUrl: user.avatarUrl,
     });
     tx.update(userRef(uid), {
       pairId: pairSnapshot.id,

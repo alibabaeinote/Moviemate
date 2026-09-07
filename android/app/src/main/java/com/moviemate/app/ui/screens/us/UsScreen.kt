@@ -20,11 +20,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.moviemate.app.data.remote.TmdbApi
 import com.moviemate.app.di.LocalAppGraph
+import com.moviemate.app.ui.components.Avatar
 import com.moviemate.app.ui.components.SecondaryCta
+import com.moviemate.app.ui.components.pressableCard
 import com.moviemate.app.ui.core.UiStateHost
 import com.moviemate.app.ui.core.factoryOf
 import com.moviemate.app.ui.theme.MovieMateTheme
@@ -40,7 +43,7 @@ import com.moviemate.app.ui.theme.Space
  * watched something.
  */
 @Composable
-fun UsScreen(onSignedOut: () -> Unit) {
+fun UsScreen(onSignedOut: () -> Unit, onEditProfile: () -> Unit) {
     val graph = LocalAppGraph.current
     val viewModel: UsViewModel = viewModel(
         factory = factoryOf {
@@ -62,6 +65,26 @@ fun UsScreen(onSignedOut: () -> Unit) {
 
         UiStateHost(state = state) { stats ->
             Column(verticalArrangement = Arrangement.spacedBy(Space.stack)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Space.sectionGap),
+                ) {
+                    PersonRow(
+                        name = stats.myName,
+                        avatarUrl = stats.myAvatarUrl,
+                        ringColor = if (stats.isUserA) colors.partnerA else colors.partnerB,
+                        modifier = Modifier.weight(1f).pressableCard(onEditProfile),
+                    )
+                    if (stats.partnerJoined) {
+                        PersonRow(
+                            name = stats.partnerName ?: "Your partner",
+                            avatarUrl = stats.partnerAvatarUrl,
+                            ringColor = if (stats.isUserA) colors.partnerB else colors.partnerA,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.stack)) {
                     Stat(
                         value = stats.matches.toString(),
@@ -144,6 +167,35 @@ fun UsScreen(onSignedOut: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+/**
+ * One person's identity: picture, name, ring in their fixed color.
+ *
+ * Only the caller's own row is tappable (into [ProfileEditScreen]) — a
+ * partner's picture and name are read-only here, same as everywhere else in
+ * the app.
+ */
+@Composable
+private fun PersonRow(
+    name: String,
+    avatarUrl: String?,
+    ringColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MovieMateTheme.colors
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(Space.stackTight),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Avatar(name = name, avatarUrl = avatarUrl, ringColor = ringColor)
+        Text(
+            text = name,
+            style = MovieMateType.statCaption,
+            color = colors.textPrimary,
+        )
     }
 }
 

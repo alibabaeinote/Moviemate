@@ -23,7 +23,6 @@ data class User(
     val uid: String = "",
     val name: String = "",
     val email: String = "",
-    val emailVerified: Boolean = false,
     val createdAt: Timestamp? = null,
     val pairId: String? = null,
     val onboardingComplete: Boolean = false,
@@ -33,6 +32,8 @@ data class User(
     val notificationSettings: NotificationSettings = NotificationSettings(),
     val timezone: String = "UTC",
     val lastActiveAt: Timestamp? = null,
+    /** Firebase Storage download URL. Null until the user sets one in the profile screen. */
+    val avatarUrl: String? = null,
 )
 
 data class Pair(
@@ -50,6 +51,15 @@ data class Pair(
     val lastMatchGeneratedAt: Timestamp? = null,
     val lastWatchAt: Timestamp? = null,
     val timezone: String = "UTC",
+    /**
+     * Denormalized from users/{uid} by onUserProfileUpdated. The rules let a
+     * user read only their own user document, so this is the only place either
+     * partner's name or picture is visible from the other side.
+     */
+    val userAName: String? = null,
+    val userAAvatarUrl: String? = null,
+    val userBName: String? = null,
+    val userBAvatarUrl: String? = null,
 )
 
 /**

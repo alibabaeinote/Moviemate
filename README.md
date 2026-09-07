@@ -81,11 +81,16 @@ None of this can be scripted; it needs console access.
 
 1. Create a Firebase project (the docs assume `moviemate-prod`).
 2. Enable **Firestore** in production mode.
-3. Enable **Authentication → Email/Password**.
+3. Enable **Authentication → Google** as a sign-in provider (the only one —
+   there is no Email/Password in this app). Copy the **Web client ID** it
+   generates (Google Cloud Console → APIs & Services → Credentials) into
+   `GoogleAuthConfig.WEB_CLIENT_ID` in the Android source.
 4. Enable **Cloud Messaging**.
-5. Download `google-services.json` into `android/app/`. It is git-ignored, and
+5. Enable **Storage** (avatar uploads; `storage.rules` ships in this repo —
+   deploy it with `firebase deploy --only storage`).
+6. Download `google-services.json` into `android/app/`. It is git-ignored, and
    should stay that way.
-6. Get a [TMDB API key](https://www.themoviedb.org/settings/api).
+7. Get a [TMDB API key](https://www.themoviedb.org/settings/api).
 
 ### Backend
 

@@ -20,9 +20,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.moviemate.app.ui.components.BottomNavItem
 import com.moviemate.app.ui.components.MovieMateBottomNav
-import com.moviemate.app.ui.screens.auth.ForgotPasswordScreen
-import com.moviemate.app.ui.screens.auth.SignInScreen
-import com.moviemate.app.ui.screens.auth.SignUpScreen
 import com.moviemate.app.ui.screens.auth.WelcomeScreen
 import com.moviemate.app.ui.screens.onboarding.InvitePartnerScreen
 import com.moviemate.app.ui.screens.onboarding.JoinPartnerScreen
@@ -32,6 +29,7 @@ import com.moviemate.app.ui.screens.match.MatchScreen
 import com.moviemate.app.ui.screens.match.RateWatchedScreen
 import com.moviemate.app.ui.screens.match.ScheduleWatchScreen
 import com.moviemate.app.ui.screens.onboarding.WaitingForPartnerScreen
+import com.moviemate.app.ui.screens.us.ProfileEditScreen
 import com.moviemate.app.ui.screens.us.UsScreen
 import com.moviemate.app.ui.screens.watchlist.WatchlistScreen
 import com.moviemate.app.ui.theme.Space
@@ -104,27 +102,12 @@ fun MovieMateNavHost(
 private fun androidx.navigation.NavGraphBuilder.authGraph(navController: NavHostController) {
     composable(Routes.WELCOME) {
         WelcomeScreen(
-            onSignUp = { navController.navigate(Routes.SIGN_UP) },
-            onSignIn = { navController.navigate(Routes.SIGN_IN) },
-        )
-    }
-    composable(Routes.SIGN_UP) {
-        SignUpScreen(
-            onSignedUp = { navController.replaceWith(Routes.ONBOARDING_RATE) },
-            onSignInInstead = { navController.navigate(Routes.SIGN_IN) },
-        )
-    }
-    composable(Routes.SIGN_IN) {
-        SignInScreen(
-            // Back through Routing, not straight to Match: a returning user may
-            // be mid-onboarding, or waiting on a partner who never joined.
+            // Back through Routing rather than straight to a fixed screen: a
+            // returning account may be mid-onboarding or waiting on a partner
+            // who never joined, and Routing is what already knows how to tell
+            // a first-time sign-in from a returning one.
             onSignedIn = { navController.replaceWith(Routes.ROUTING) },
-            onForgotPassword = { navController.navigate(Routes.FORGOT_PASSWORD) },
-            onSignUpInstead = { navController.navigate(Routes.SIGN_UP) },
         )
-    }
-    composable(Routes.FORGOT_PASSWORD) {
-        ForgotPasswordScreen(onDone = { navController.popBackStack() })
     }
 }
 
@@ -200,7 +183,11 @@ private fun androidx.navigation.NavGraphBuilder.mainGraph(navController: NavHost
                     popUpTo(navController.graph.id) { inclusive = true }
                 }
             },
+            onEditProfile = { navController.navigate(Routes.PROFILE_EDIT) },
         )
+    }
+    composable(Routes.PROFILE_EDIT) {
+        ProfileEditScreen(onDone = { navController.popBackStack() })
     }
 
     // These two stack on the Match tab rather than replacing it: they are

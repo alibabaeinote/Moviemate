@@ -31,6 +31,7 @@ export { scheduleWatch } from "./callable/scheduleWatch";
 export { onRatingComplete } from "./triggers/onRatingComplete";
 export { onMatchUpdate } from "./triggers/onMatchUpdate";
 export { onWatchlistUpdate } from "./triggers/onWatchlistUpdate";
+export { onUserProfileUpdated } from "./triggers/onUserProfileUpdated";
 export { onWatchlistAdd } from "./triggers/onWatchlistAdd";
 
 // Scheduled maintenance

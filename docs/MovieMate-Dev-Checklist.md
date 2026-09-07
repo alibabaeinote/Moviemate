@@ -33,7 +33,8 @@
 |---|---|
 | ساخت پروژه‌ی Firebase (`moviemate-prod`) | 🔴 |
 | فعال‌سازی Firestore (production mode) | 🔴 |
-| فعال‌سازی Auth → Email/Password | 🔴 |
+| فعال‌سازی Auth → Google Sign-In (نه Email/Password — [UPDATE]) | 🟡 کد آماده، نیاز به `GoogleAuthConfig.WEB_CLIENT_ID` واقعی |
+| فعال‌سازی Storage + دیپلوی `storage.rules` (آواتار) | 🟡 |
 | فعال‌سازی Cloud Messaging | 🔴 |
 | قرار دادن `google-services.json` در `android/app/` | 🔴 |
 | گرفتن TMDB API Key و ست کردنش (`firebase functions:secrets:set`) | 🔴 |

@@ -49,6 +49,19 @@ data class Session(
 
     val ratingCount: Int get() = user?.ratingCount ?: 0
 
+    val displayName: String? get() = user?.name?.takeIf { it.isNotBlank() }
+    val avatarUrl: String? get() = user?.avatarUrl
+
+    /**
+     * The partner's name and picture, read off the pair document rather than
+     * their own user document — the rules only let a person read their own
+     * users/{uid}, so the pair is the only place either side is visible to
+     * the other. Null before onUserProfileUpdated has run once, or before a
+     * partner exists at all.
+     */
+    val partnerName: String? get() = pair?.let { if (it.userA == uid) it.userBName else it.userAName }
+    val partnerAvatarUrl: String? get() = pair?.let { if (it.userA == uid) it.userBAvatarUrl else it.userAAvatarUrl }
+
     /**
      * Everything this session claims to know has actually arrived.
      *

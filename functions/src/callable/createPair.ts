@@ -44,6 +44,10 @@ export const createPair = onCall<{ timezone?: string }>(async (request) => {
       lastMatchGeneratedAt: null,
       lastWatchAt: null,
       timezone,
+      // Seeded from the creator's current profile so the pair document reads
+      // correctly from day one, not just after their next edit.
+      userAName: user.name,
+      userAAvatarUrl: user.avatarUrl,
     };
 
     const ref = db.collection(COLLECTIONS.pairs).doc();

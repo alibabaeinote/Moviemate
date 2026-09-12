@@ -46,13 +46,10 @@ export function scoreCandidate(
   // deliberately small: general acclaim must not outrank these two people's
   // taste (docs §5).
   //
-  // NOTE — the source doc contradicts itself here. §5 writes
-  //   qualityBonus = (tmdbRating / 10) * 10        // = tmdbRating, i.e. 0-10
-  // while its own inline comment says "rescale to 0-100", and the §6 summary
-  // formula writes (tmdbRating * 10), i.e. 0-100. Taking the §5 arithmetic
-  // literally would mix a 0-10 term into a 0-100 blend and silently strip ~90%
-  // of the intended quality weight. We follow the stated intent and §6.
-  // Flagged for product sign-off — see README §"Open questions".
+  // The source doc's §5 formula had a stray ×10 instead of ×100, contradicting
+  // its own "rescale to 0-100" comment and the §6 summary formula. This code
+  // always followed §6's stated intent; the doc itself was fixed to match
+  // (2026-09-12) rather than the other way around.
   const qualityBonus = (film.tmdbRating / 10) * 100;
 
   const finalScore = tasteScore * config.tasteWeight + qualityBonus * config.qualityWeight;

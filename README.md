@@ -177,15 +177,16 @@ flags — exactly the one-sided decision PRD §7.2 exists to prevent.
 It is now replaced by `commitsOnlyForSelf()`, which pins the *other* person's
 flag to its stored value.
 
-### 2. The quality-bonus formula contradicts itself
+### 2. The quality-bonus formula contradicted itself in the doc
 
-Algorithm doc §5 writes `qualityBonus = (tmdbRating / 10) × 10`, which evaluates
-to `tmdbRating` — a 0-10 number. Its own inline comment says "rescale to 0-100",
-and the §6 summary writes `tmdbRating × 10`, which is 0-100.
+Algorithm doc §5 wrote `qualityBonus = (tmdbRating / 10) × 10`, which evaluates
+to `tmdbRating` — a 0-10 number. Its own inline comment said "rescale to 0-100",
+and the §6 summary wrote `tmdbRating × 10`, which is 0-100.
 
-Taken literally, §5 would mix a 0-10 term into a 0-100 blend and quietly drop
-about 90% of the intended quality weight. **The code follows the stated intent
-and §6 (0-100).** This needs a product decision to confirm.
+Taken literally, §5 would have mixed a 0-10 term into a 0-100 blend and quietly
+dropped about 90% of the intended quality weight. **The code always followed
+the stated intent and §6 (0-100)** — only the doc's §5 and its pseudocode had
+the wrong multiplier. Fixed in the doc (2026-09-12) rather than the code.
 
 ### 3. Client writes to `/pairs` are closed
 

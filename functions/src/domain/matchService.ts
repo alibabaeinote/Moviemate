@@ -104,16 +104,28 @@ export interface GeneratedMatch {
   noMatches: boolean;
 }
 
+export type CandidatePoolProvider = (
+  pairId: string,
+  profileA: TasteProfile,
+  profileB: TasteProfile
+) => Promise<ScorableFilm[]>;
+
 /**
  * Score the pool and write today's match document.
  *
  * When nothing clears the threshold we still write a document — with
  * `noMatchesReason` set and no film — so the client has an unambiguous state to
  * render (ALI-73) rather than an empty collection it has to guess about.
+ *
+ * `buildPool` defaults to the real TMDB-backed [buildCandidatePool] but can be
+ * swapped for a fixed list — the integration suite has no network access (and
+ * shouldn't reach TMDB even if it did), so its test injects a fake pool built
+ * entirely from seeded filmCache docs instead.
  */
 export async function generateMatchForPair(
   pairId: string,
-  pair: PairDoc
+  pair: PairDoc,
+  buildPool: CandidatePoolProvider = buildCandidatePool
 ): Promise<GeneratedMatch | null> {
   if (!pair.userB) return null;
 
@@ -122,7 +134,7 @@ export async function generateMatchForPair(
     buildProfileFor(pairId, pair.userB),
   ]);
 
-  const candidates = await buildCandidatePool(pairId, profileA, profileB);
+  const candidates = await buildPool(pairId, profileA, profileB);
   const result = rankCandidates(profileA, profileB, candidates);
 
   const ref = matchesRef(pairId).doc();

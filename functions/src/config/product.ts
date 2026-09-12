@@ -8,16 +8,17 @@ export interface ProductConfig {
   /**
    * How long a pair can go between completed watches before the streak resets.
    *
-   * ⚠️ PRODUCT DECISION NEEDED. The schema doc defines streakCount as
-   * "روزهای متوالی rating مشترک" — consecutive days of shared rating — but the
-   * PRD's own target user watches together "1-2 times a week" (§2). A strict
-   * consecutive-day streak would therefore reset for essentially every real
-   * user, turning the Us screen's headline number into a permanent 1.
+   * The schema doc defines streakCount as "روزهای متوالی rating مشترک" —
+   * consecutive days of shared rating — but the PRD's own target user watches
+   * together "1-2 times a week" (§2). A strict consecutive-day streak would
+   * therefore reset for essentially every real user, turning the Us screen's
+   * headline number into a permanent 1.
    *
    * The default here is 7 days: the streak survives as long as the pair keeps
    * up their stated habit, and breaks when they genuinely lapse. That is a
    * deliberate reinterpretation of the doc, not an implementation of it — see
-   * README §"Deviations". Set to 1 for the literal consecutive-day reading.
+   * README §"Deviations". Product sign-off received (2026-09-12): 7 is the
+   * intended value, not a placeholder. Set to 1 only if that is revisited.
    */
   readonly streakGraceDays: number;
 

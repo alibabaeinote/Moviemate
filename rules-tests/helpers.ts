@@ -85,6 +85,7 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       commitStatus: { userA: false, userB: false },
       bothConfirmedAt: null,
       watchedConfirmedAt: null,
+      watchedConfirmedBy: null,
       shortlist: [],
     });
 

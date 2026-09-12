@@ -108,6 +108,7 @@ export interface MatchSeed {
   commitStatus?: { userA: boolean; userB: boolean };
   bothConfirmedAt?: Timestamp | null;
   watchedConfirmedAt?: Timestamp | null;
+  watchedConfirmedBy?: string | null;
   shortlist?: Array<{ filmId: string; score: number; reason: string }>;
   fallbackUnlocked?: boolean;
 }
@@ -123,6 +124,7 @@ export function matchDoc(over: MatchSeed = {}) {
     commitStatus: { userA: false, userB: false },
     bothConfirmedAt: null,
     watchedConfirmedAt: null,
+    watchedConfirmedBy: null,
     shortlist: [],
     fallbackUnlocked: false,
     ...over,

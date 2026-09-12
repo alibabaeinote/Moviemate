@@ -198,6 +198,27 @@ describe("watched cycle", () => {
     expect((await readPair())?.streakCount).toBe(1);
   });
 
+  it("records who confirmed, without sending anything when there are no FCM tokens", async () => {
+    // Notification delivery itself is out of scope here — the seeded users
+    // carry no fcmTokens (helpers.ts), so sendNotification short-circuits
+    // before ever calling messaging. This proves the new field flows through
+    // the trigger without breaking the existing pipeline.
+    await confirmWatched({ watchedConfirmedBy: ALI });
+
+    const match = await readMatch();
+    expect(match?.watchedConfirmedBy).toBe(ALI);
+    expect(match?.status).toBe("watched");
+
+    const log = await db().collection("notificationLog").get();
+    expect(log.empty).toBe(true);
+  });
+
+  it("does not throw on a legacy match with no watchedConfirmedBy", async () => {
+    await confirmWatched({ watchedConfirmedBy: null });
+
+    expect((await readMatch())?.status).toBe("watched");
+  });
+
   it("does not re-run when it fires again on its own status write", async () => {
     // The handler writes status:"watched", re-firing the trigger with
     // watchedConfirmedAt already set on BOTH sides. If the guard were on the

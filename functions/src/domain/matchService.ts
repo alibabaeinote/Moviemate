@@ -139,6 +139,7 @@ export async function generateMatchForPair(
       commitStatus: { userA: false, userB: false },
       bothConfirmedAt: null,
       watchedConfirmedAt: null,
+      watchedConfirmedBy: null,
       shortlist: [],
       noMatchesReason:
         candidates.length === 0
@@ -161,6 +162,7 @@ export async function generateMatchForPair(
     commitStatus: { userA: false, userB: false },
     bothConfirmedAt: null,
     watchedConfirmedAt: null,
+    watchedConfirmedBy: null,
     shortlist: toShortlistEntries(result.shortlist),
   };
   await ref.set(doc);

@@ -110,11 +110,38 @@ async function handleWatched(
 
   logger.info("Watch cycle closed", { pairId, matchId, filmId: match.filmId });
 
-  // NOTE: there is no notification here. The person who tapped "We watched it"
-  // goes straight to the Taste Dial in-app, but their partner currently gets no
-  // prompt to rate. Adding an eighth notification type spends from the daily
-  // frequency budget, so it needs product sign-off first — tracked in
-  // docs/MovieMate-Dev-Checklist.md.
+  await notifyPartnerToRate(pairId, matchId, match);
+}
+
+/**
+ * The person who tapped "We watched it" goes straight to the Taste Dial
+ * in-app; their partner needs a nudge since nothing in the UI tells them to
+ * rate. Requires knowing who confirmed — a match written before this field
+ * existed has `watchedConfirmedBy: null` and is silently skipped rather than
+ * guessed at.
+ */
+async function notifyPartnerToRate(
+  pairId: string,
+  matchId: string,
+  match: MatchDoc
+): Promise<void> {
+  const confirmedBy = match.watchedConfirmedBy;
+  if (!confirmedBy) return;
+
+  const pair = await loadPair(pairId);
+  const recipient = confirmedBy === pair.userA ? pair.userB : pair.userA;
+  if (!recipient) return;
+
+  const [name, title] = await Promise.all([nameOf(confirmedBy), filmTitle(match.filmId)]);
+  const copy = messages.partnerWatched(name, title);
+
+  await sendNotification(recipient, "partner_watched", {
+    title: copy.title,
+    body: copy.body,
+    pairId,
+    matchId,
+    filmId: match.filmId,
+  });
 }
 
 /** Advance the streak in a transaction — two matches could close at once. */

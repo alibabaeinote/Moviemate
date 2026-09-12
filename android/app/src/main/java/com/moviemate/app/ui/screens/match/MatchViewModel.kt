@@ -149,7 +149,7 @@ class MatchViewModel(
     fun confirmWatched(matchId: String) {
         val current = session ?: return
         val pairId = current.pairId ?: return
-        runAction { pairRepository.confirmWatched(pairId, matchId) }
+        runAction { pairRepository.confirmWatched(pairId, matchId, current.uid) }
     }
 
     private companion object {

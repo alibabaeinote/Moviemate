@@ -42,7 +42,21 @@ data class UsStats(
     val partnerAvatarUrl: String?,
     /** Picks which of the two fixed partner colors rings each avatar. */
     val isUserA: Boolean,
+    /**
+     * Watched-together count for the last [JOURNEY_WEEKS] weeks, oldest first.
+     * Not a badge — a trend, so an empty recent week reads as "quiet lately"
+     * rather than as a broken streak.
+     */
+    val journeyWeeks: List<Int>,
+    /**
+     * How closely the two Taste Dials agree, averaged over every film both of
+     * them rated. Null until [com.moviemate.app.ui.screens.us.UsStatsMath.MIN_SHARED_RATED_FILMS]
+     * shared ratings exist — see that constant for why.
+     */
+    val compatibilityPercent: Int?,
 )
+
+private const val JOURNEY_WEEKS = 6
 
 class UsViewModel(
     private val pairRepository: PairRepository,
@@ -61,6 +75,7 @@ class UsViewModel(
      * finishes and read a property whose initializer has not executed yet.
      */
     private var totals = PairTotals()
+    private var extended = ExtendedStats()
 
     init {
         viewModelScope.launch {
@@ -79,11 +94,45 @@ class UsViewModel(
                 .distinctUntilChanged()
                 .collect { refreshTotals() }
         }
+
+        // Journey and compatibility read the raw watchlist/ratings collections,
+        // so they are refreshed on the same two signals that can move either
+        // one: a new watch, or a new rating.
+        viewModelScope.launch {
+            sessionStore.session
+                .map { Triple(it?.pair?.lastWatchAt, it?.ratingCount, it?.pairId) }
+                .distinctUntilChanged()
+                .collect { refreshExtended() }
+        }
     }
 
     private suspend fun refreshTotals() {
         val pairId = session?.pairId ?: return
         totals = pairRepository.pairTotals(pairId)
+        render(session)
+    }
+
+    private suspend fun refreshExtended() {
+        val current = session ?: return
+        val pairId = current.pairId ?: return
+        val userA = current.pair?.userA ?: return
+        val userB = current.pair?.userB ?: return
+
+        val inputs = pairRepository.statsInputs(pairId)
+        extended = ExtendedStats(
+            journeyWeeks = UsStatsMath.weeklyJourney(
+                watchedAtMillis = inputs.watchedAtMillis,
+                weeks = JOURNEY_WEEKS,
+                nowMillis = System.currentTimeMillis(),
+            ),
+            compatibilityPercent = UsStatsMath.tasteCompatibility(
+                ratings = inputs.ratings.map {
+                    UsStatsMath.RatingPoint(filmId = it.filmId, userId = it.userId, score = it.score)
+                },
+                userA = userA,
+                userB = userB,
+            ),
+        )
         render(session)
     }
 
@@ -109,9 +158,16 @@ class UsViewModel(
                 partnerName = current.partnerName,
                 partnerAvatarUrl = current.partnerAvatarUrl,
                 isUserA = current.isUserA,
+                journeyWeeks = extended.journeyWeeks,
+                compatibilityPercent = extended.compatibilityPercent,
             ),
         )
     }
+
+    private data class ExtendedStats(
+        val journeyWeeks: List<Int> = List(JOURNEY_WEEKS) { 0 },
+        val compatibilityPercent: Int? = null,
+    )
 
     /**
      * Notification preferences.

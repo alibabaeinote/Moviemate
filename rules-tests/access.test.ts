@@ -153,6 +153,7 @@ describe("matches are produced by the server only", () => {
         commitStatus: { userA: true, userB: true },
         bothConfirmedAt: null,
         watchedConfirmedAt: null,
+        watchedConfirmedBy: null,
         shortlist: [],
       })
     );

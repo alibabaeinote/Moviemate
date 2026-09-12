@@ -73,7 +73,7 @@ tasteScore = avgScore − divergencePenalty
 ## ۵. مرحله ۴ — تعدیل کیفیت (Quality Adjustment)
 
 ```
-qualityBonus = (film.tmdbRating / 10) × 10   // مقیاس‌بندی به ۰-۱۰۰، سهم کوچک
+qualityBonus = (film.tmdbRating / 10) × 100   // [UPDATE: تصحیح ×10→×100] مقیاس‌بندی به ۰-۱۰۰، سهم کوچک
 
 finalScore = (tasteScore × 0.85) + (qualityBonus × 0.15)
 ```
@@ -142,7 +142,7 @@ async function generateDailyMatch(pairId) {
     const predB = predictScore(profileB, film);
     const divergence = Math.abs(predA - predB);
     const tasteScore = (predA + predB) / 2 - (divergence * 0.4);
-    const qualityBonus = (film.tmdbRating / 10) * 10;
+    const qualityBonus = (film.tmdbRating / 10) * 100; // [UPDATE: تصحیح ×10→×100]
     const finalScore = (tasteScore * 0.85) + (qualityBonus * 0.15);
     return { film, finalScore, reason: buildReason(profileA, profileB, film) };
   }).sort((a, b) => b.finalScore - a.finalScore);

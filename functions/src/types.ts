@@ -93,6 +93,8 @@ export interface MatchDoc {
   commitStatus: CommitStatus;
   bothConfirmedAt: Timestamp | null;
   watchedConfirmedAt: Timestamp | null;
+  /** Who tapped "We watched it" — so the OTHER partner is the one prompted to rate. */
+  watchedConfirmedBy: string | null;
   /**
    * The ranked shortlist this match came from, so onMatchRejected can advance to
    * the next candidate — and the 3-up fallback screen can show all of them —

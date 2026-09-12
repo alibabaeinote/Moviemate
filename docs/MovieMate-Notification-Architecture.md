@@ -39,6 +39,7 @@ users/{userId}
 | **Both Confirmed / Reminder** | `onCommitUpdate` (وقتی هر دو true شد) | بلافاصله بعد از تعهد متقابل کامل | "You're both in! We'll remind you tonight" | صفحه‌ی Reminder/زمان‌بندی |
 | **Scheduled Reminder** | Cloud Function زمان‌بندی‌شده (۱۵ دقیقه قبل از زمان پیشنهادی) | زمان تماشای پیشنهادی | "Ready to watch Dune? 🍿" | صفحه‌ی Match (دکمه‌ی We watched it) |
 | **Watchlist Activity** | `onWatchlistUpdate` | وقتی یک نفر فیلمی به‌صورت دستی اضافه می‌کند | "Sara added Poor Things to your list" | تب Watchlist |
+| **Partner Watched** [UPDATE: نوع هشتم، تصمیم محصولی ۲۰۲۶-۰۹-۱۲] | `onMatchUpdate` (وقتی `watchedConfirmedAt` ثبت می‌شود) | بلافاصله بعد از "We watched it" — فقط به طرفی که دکمه را نزده | "Ali confirmed you watched Dune — rate it" | صفحه‌ی Rate |
 
 ---
 
@@ -120,7 +121,7 @@ when (deepLinkTarget) {
 ## ۸. Definition of Done — این لایه
 
 - [ ] فیلد `fcmTokens` به schema اضافه و در Firestore واقعی تست شده
-- [ ] هر ۷ نوع نوتیفیکیشن بالا به‌صورت Cloud Function واقعی نوشته شده
+- [ ] هر ۸ نوع نوتیفیکیشن بالا به‌صورت Cloud Function واقعی نوشته شده
 - [ ] Deep linking برای هر دو حالت (cold start / background) تست شده
 - [ ] درخواست مجوز Android 13+ در onboarding پیاده و تست شده
 - [ ] منطق frequency cap تست شده (سناریو: چند رویداد هم‌زمان، فقط یک نوتیف باید برسد)

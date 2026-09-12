@@ -98,6 +98,7 @@ data class Match(
     val commitStatus: CommitStatus = CommitStatus(),
     val bothConfirmedAt: Timestamp? = null,
     val watchedConfirmedAt: Timestamp? = null,
+    val watchedConfirmedBy: String? = null,
     val shortlist: List<ShortlistEntry> = emptyList(),
     val noMatchesReason: String? = null,
     val fallbackUnlocked: Boolean = false,

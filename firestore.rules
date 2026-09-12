@@ -210,10 +210,11 @@ service cloud.firestore {
     // means a genuine rule error here would hide in the noise. Worth another
     // look before launch.
     function confirmsWatchedOnly() {
-      return changedKeys().hasOnly(['watchedConfirmedAt'])
+      return changedKeys().hasOnly(['watchedConfirmedAt', 'watchedConfirmedBy'])
         && resource.data.watchedConfirmedAt == null
         && request.resource.data.watchedConfirmedAt is timestamp
-        && request.resource.data.watchedConfirmedAt == request.time;
+        && request.resource.data.watchedConfirmedAt == request.time
+        && request.resource.data.watchedConfirmedBy == request.auth.uid;
     }
   }
 }

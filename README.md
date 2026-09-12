@@ -208,8 +208,9 @@ as long as the pair keeps up the habit the PRD describes, and breaks when they
 genuinely lapse. It also counts *completed watches*, not app opens — rewarding
 the habit of checking a phone is not the point — and at most once per local day.
 
-The window is `PRODUCT_CONFIG.streakGraceDays`; set it to 1 for the literal
-reading. **This needs product sign-off.**
+The window is `PRODUCT_CONFIG.streakGraceDays`. **Product sign-off received
+(2026-09-12): the 7-day window is the intended behavior**, not a placeholder —
+set it to 1 only if that decision is ever revisited.
 
 ### 5. Fields added that the docs do not mention
 

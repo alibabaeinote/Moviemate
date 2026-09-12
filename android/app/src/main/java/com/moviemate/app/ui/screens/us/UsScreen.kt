@@ -2,9 +2,11 @@ package com.moviemate.app.ui.screens.us
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.moviemate.app.data.remote.TmdbApi
@@ -112,6 +115,16 @@ fun UsScreen(onSignedOut: () -> Unit, onEditProfile: () -> Unit) {
                         style = MovieMateType.body,
                         color = colors.textSecondary,
                     )
+                }
+
+                if (stats.partnerJoined) {
+                    Spacer(Modifier.height(Space.stackTight))
+                    Text("YOUR JOURNEY", style = MovieMateType.overline, color = colors.textSecondary)
+                    JourneyChart(weeks = stats.journeyWeeks)
+
+                    Spacer(Modifier.height(Space.stackTight))
+                    Text("TASTE COMPATIBILITY", style = MovieMateType.overline, color = colors.textSecondary)
+                    CompatibilityRow(percent = stats.compatibilityPercent)
                 }
 
                 Spacer(Modifier.height(Space.stackTight))
@@ -219,6 +232,84 @@ private fun Stat(
         // "Matches" without "both confirmed" invites the reading that it counts
         // suggestions, which would make the number meaningless (PRD §9).
         Text(note, style = MovieMateType.meta, color = colors.textSecondary)
+    }
+}
+
+/**
+ * Six trailing weeks of watch counts, oldest to newest, as bars rather than a
+ * badge — a trend, not a score to protect (PRD §7.4).
+ */
+@Composable
+private fun JourneyChart(weeks: List<Int>, modifier: Modifier = Modifier) {
+    val colors = MovieMateTheme.colors
+    val maxCount = (weeks.maxOrNull() ?: 0).coerceAtLeast(1)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.card))
+            .background(colors.surfaceRaised)
+            .padding(Space.stackTight),
+        horizontalArrangement = Arrangement.spacedBy(Space.inline),
+    ) {
+        weeks.forEach { count ->
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(JOURNEY_BAR_HEIGHT)
+                        .clip(RoundedCornerShape(Radius.pill))
+                        .background(colors.surfaceSunken),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(count / maxCount.toFloat())
+                            .clip(RoundedCornerShape(Radius.pill))
+                            .background(colors.actionPrimaryFill),
+                    )
+                }
+                Spacer(Modifier.height(Space.inlineTight))
+                Text(count.toString(), style = MovieMateType.meta, color = colors.textSecondary)
+            }
+        }
+    }
+}
+
+private val JOURNEY_BAR_HEIGHT = 56.dp
+
+/**
+ * One line, not a badge tile: below [com.moviemate.app.ui.screens.us.UsStatsMath.MIN_SHARED_RATED_FILMS]
+ * shared ratings the number would be noise, so it says so instead of guessing.
+ */
+@Composable
+private fun CompatibilityRow(percent: Int?, modifier: Modifier = Modifier) {
+    val colors = MovieMateTheme.colors
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.card))
+            .background(colors.surfaceRaised)
+            .padding(Space.stackTight),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (percent != null) {
+                "You two agree on taste"
+            } else {
+                "Rate a few more films together to see this"
+            },
+            style = MovieMateType.body,
+            color = colors.textPrimary,
+        )
+        if (percent != null) {
+            Text("$percent%", style = MovieMateType.statNumber, color = colors.textAccent)
+        }
     }
 }
 

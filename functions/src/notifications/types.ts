@@ -1,6 +1,9 @@
 import type { NotificationSettings } from "../types";
 
-/** The seven notification types from docs/MovieMate-Notification-Architecture.md §3. */
+/**
+ * The seven notification types from docs/MovieMate-Notification-Architecture.md §3,
+ * plus partner_watched (added post-launch — see docs/MovieMate-Dev-Checklist.md).
+ */
 export type NotificationType =
   | "daily_match"
   | "partner_joined"
@@ -8,7 +11,8 @@ export type NotificationType =
   | "partner_committed"
   | "both_confirmed"
   | "scheduled_reminder"
-  | "watchlist_activity";
+  | "watchlist_activity"
+  | "partner_watched";
 
 /** Where tapping the notification should land (Navigation Compose route key). */
 export type DeepLinkTarget = "match" | "watchlist" | "rate" | "reminder" | "onboarding" | "home";
@@ -72,5 +76,13 @@ export const NOTIFICATION_SPECS: Record<NotificationType, NotificationSpec> = {
     target: "watchlist",
     essential: false,
     collapseWindowMinutes: 10,
+  },
+  // Not time-bound like both_confirmed/scheduled_reminder, so it is subject to
+  // the daily non-essential cap rather than bypassing it.
+  partner_watched: {
+    setting: "partnerActivity",
+    target: "rate",
+    essential: false,
+    collapseWindowMinutes: 60,
   },
 };

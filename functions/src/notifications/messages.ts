@@ -39,4 +39,9 @@ export const messages = {
     title: `${partnerName} added ${filmTitle}`,
     body: "Tap to say you're in too.",
   }),
+
+  partnerWatched: (partnerName: string, filmTitle: string) => ({
+    title: `${partnerName} confirmed you watched ${filmTitle}`,
+    body: "Rate it so tonight's next pick gets a little smarter.",
+  }),
 } as const;

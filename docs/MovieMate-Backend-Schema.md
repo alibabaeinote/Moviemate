@@ -114,7 +114,8 @@ pairs/{pairId}/matches/{matchId}
     userB: boolean
   },
   bothConfirmedAt: Timestamp | null,  // زمانی که commitStatus هر دو true شد — این معیار "Match واقعی" در گزارش‌هاست
-  watchedConfirmedAt: Timestamp | null // زمان تایید دستی "We watched it"
+  watchedConfirmedAt: Timestamp | null, // زمان تایید دستی "We watched it"
+  watchedConfirmedBy: string | null // [UPDATE] uid کسی که تایید کرد — تا نوتیف partner_watched طرف درست را صدا بزند
 }
 ```
 

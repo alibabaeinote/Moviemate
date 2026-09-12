@@ -151,7 +151,10 @@ describe("watched confirmation is manual and one-way", () => {
   it("lets either member record that they watched it", async () => {
     const db = env.authenticatedContext(SARA).firestore();
     await assertSucceeds(
-      updateDoc(matchRef(db), { watchedConfirmedAt: serverTimestamp() })
+      updateDoc(matchRef(db), {
+        watchedConfirmedAt: serverTimestamp(),
+        watchedConfirmedBy: SARA,
+      })
     );
   });
 
@@ -160,24 +163,47 @@ describe("watched confirmation is manual and one-way", () => {
     // watched something last week.
     const db = env.authenticatedContext(ALI).firestore();
     await assertFails(
-      updateDoc(matchRef(db), { watchedConfirmedAt: new Date("2020-01-01") })
+      updateDoc(matchRef(db), {
+        watchedConfirmedAt: new Date("2020-01-01"),
+        watchedConfirmedBy: ALI,
+      })
+    );
+  });
+
+  it("STOPS claiming someone else confirmed it", async () => {
+    // watchedConfirmedBy must match the caller, same guarantee as commitStatus.
+    const db = env.authenticatedContext(ALI).firestore();
+    await assertFails(
+      updateDoc(matchRef(db), {
+        watchedConfirmedAt: serverTimestamp(),
+        watchedConfirmedBy: SARA,
+      })
     );
   });
 
   it("STOPS re-confirming something already marked watched", async () => {
     const db = env.authenticatedContext(ALI).firestore();
     await assertSucceeds(
-      updateDoc(matchRef(db), { watchedConfirmedAt: serverTimestamp() })
+      updateDoc(matchRef(db), {
+        watchedConfirmedAt: serverTimestamp(),
+        watchedConfirmedBy: ALI,
+      })
     );
     await assertFails(
-      updateDoc(matchRef(db), { watchedConfirmedAt: serverTimestamp() })
+      updateDoc(matchRef(db), {
+        watchedConfirmedAt: serverTimestamp(),
+        watchedConfirmedBy: ALI,
+      })
     );
   });
 
   it("STOPS a non-member confirming", async () => {
     const db = env.authenticatedContext(STRANGER).firestore();
     await assertFails(
-      updateDoc(matchRef(db), { watchedConfirmedAt: serverTimestamp() })
+      updateDoc(matchRef(db), {
+        watchedConfirmedAt: serverTimestamp(),
+        watchedConfirmedBy: STRANGER,
+      })
     );
   });
 });

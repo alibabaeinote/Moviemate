@@ -216,6 +216,28 @@ class PairRepository(
         PairTotals(matches = confirmed.toInt(), watched = watched.toInt())
     }.getOrDefault(PairTotals())
 
+    /**
+     * Raw inputs for the Us screen's journey and compatibility numbers — see
+     * [com.moviemate.app.ui.screens.us.UsStatsMath] for what happens to them.
+     *
+     * Both `ratings` and `watchlist` are readable by any pair member under the
+     * security rules (unlike users/{uid}), so this reads straight from
+     * Firestore rather than through a callable, the same way [pairTotals] does.
+     */
+    suspend fun statsInputs(pairId: String): PairStatsInputs = runCatching {
+        val watchlistSnapshot = pairDoc(pairId).collection("watchlist")
+            .whereEqualTo("status", "watched")
+            .get().await()
+        val watchedAtMillis = watchlistSnapshot.toObjects(WatchlistItem::class.java)
+            .mapNotNull { it.watchedAt?.toDate()?.time }
+
+        val ratings = pairDoc(pairId).collection("ratings")
+            .get().await()
+            .toObjects(Rating::class.java)
+
+        PairStatsInputs(watchedAtMillis = watchedAtMillis, ratings = ratings)
+    }.getOrDefault(PairStatsInputs())
+
     /** Either member may remove a film from the shared list. */
     suspend fun deleteWatchlistItem(pairId: String, itemId: String): Result<Unit> = runCatching {
         pairDoc(pairId).collection("watchlist").document(itemId).delete().await()
@@ -262,12 +284,22 @@ class PairRepository(
         pairDoc(pairId).collection("matches").document(matchId).update(field, true).await()
     }
 
-    /** Manual "We watched it" — never inferred from a calendar or a streaming service. */
-    suspend fun confirmWatched(pairId: String, matchId: String): Result<Unit> = runCatching {
-        pairDoc(pairId).collection("matches").document(matchId)
-            .update("watchedConfirmedAt", com.google.firebase.firestore.FieldValue.serverTimestamp())
-            .await()
-    }
+    /**
+     * Manual "We watched it" — never inferred from a calendar or a streaming
+     * service. Both fields are written together: the rules require it, so the
+     * server side knows who confirmed and can prompt the OTHER partner to rate.
+     */
+    suspend fun confirmWatched(pairId: String, matchId: String, uid: String): Result<Unit> =
+        runCatching {
+            pairDoc(pairId).collection("matches").document(matchId)
+                .update(
+                    mapOf(
+                        "watchedConfirmedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                        "watchedConfirmedBy" to uid,
+                    ),
+                )
+                .await()
+        }
 
     suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> = runCatching {
         functions.getHttpsCallable("rejectMatch")
@@ -360,6 +392,12 @@ class PairRepository(
 data class PairTotals(
     val matches: Int = 0,
     val watched: Int = 0,
+)
+
+/** Raw data [com.moviemate.app.ui.screens.us.UsStatsMath] turns into journey/compatibility. */
+data class PairStatsInputs(
+    val watchedAtMillis: List<Long> = emptyList(),
+    val ratings: List<Rating> = emptyList(),
 )
 
 data class InviteInfo(

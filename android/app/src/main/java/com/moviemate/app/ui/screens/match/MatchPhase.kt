@@ -19,6 +19,14 @@ sealed interface MatchPhase {
     /** No match document at all — before the pair's 9am local run. */
     data object NotYet : MatchPhase
 
+    /**
+     * The pair isn't generating matches yet because onboarding isn't done on
+     * both sides. Shown on the Match tab itself — with the bottom nav still
+     * visible — rather than a separate holding screen, so Watchlist and Us
+     * stay reachable while this resolves.
+     */
+    data class WaitingForPartner(val stage: PartnerWaitStage) : MatchPhase
+
     /** A match was generated but nothing cleared the threshold. */
     data class NoMatches(val reason: String) : MatchPhase
 
@@ -53,11 +61,23 @@ sealed interface MatchPhase {
 }
 
 /**
+ * What the pair is still waiting on before matches can start, in the order it
+ * resolves. Two distinct waits, not one: if the partner never joined, the
+ * invite code may need re-sending — collapsing that into "they're rating"
+ * would hide the one thing this user can act on.
+ */
+enum class PartnerWaitStage { NoPartner, PartnerRating }
+
+/**
  * Read a match document from one user's side.
  *
  * Order matters and runs backwards through the lifecycle: a watched match also
  * has both commit flags set, and a confirmed one also has a film — so the
  * latest state has to be tested first or an earlier branch swallows it.
+ *
+ * `bothOnboarded` is checked before the match document is: a pair mid-onboarding
+ * has no match yet for a completely different reason than "it isn't 9am yet",
+ * and the two need different copy.
  */
 fun matchPhaseOf(
     match: Match?,
@@ -65,6 +85,15 @@ fun matchPhaseOf(
     film: Film?,
     shortlistFilms: Map<String, Film> = emptyMap(),
 ): MatchPhase {
+    if (!session.bothOnboarded) {
+        val stage = if (session.partnerJoined) {
+            PartnerWaitStage.PartnerRating
+        } else {
+            PartnerWaitStage.NoPartner
+        }
+        return MatchPhase.WaitingForPartner(stage)
+    }
+
     if (match == null) return MatchPhase.NotYet
 
     if (match.watchedConfirmedAt != null) {

@@ -28,7 +28,6 @@ import com.moviemate.app.ui.screens.onboarding.OnboardingRateScreen
 import com.moviemate.app.ui.screens.match.MatchScreen
 import com.moviemate.app.ui.screens.match.RateWatchedScreen
 import com.moviemate.app.ui.screens.match.ScheduleWatchScreen
-import com.moviemate.app.ui.screens.onboarding.WaitingForPartnerScreen
 import com.moviemate.app.ui.screens.us.ProfileEditScreen
 import com.moviemate.app.ui.screens.us.UsScreen
 import com.moviemate.app.ui.screens.watchlist.WatchlistScreen
@@ -139,12 +138,11 @@ private fun androidx.navigation.NavGraphBuilder.onboardingGraph(navController: N
     }
     composable(Routes.NOTIFICATION_PERMISSION) {
         NotificationPermissionScreen(
-            onDone = { navController.replaceWith(Routes.WAITING_FOR_PARTNER) },
-        )
-    }
-    composable(Routes.WAITING_FOR_PARTNER) {
-        WaitingForPartnerScreen(
-            onReady = { navController.replaceWith(Routes.MATCH) },
+            // Straight to Match rather than a separate holding screen: the
+            // Match tab already shows the right "waiting on partner" copy for
+            // as long as that takes, and the bottom nav means Watchlist and Us
+            // stay reachable while it resolves — see MatchPhase.WaitingForPartner.
+            onDone = { navController.replaceWith(Routes.MATCH) },
         )
     }
 }

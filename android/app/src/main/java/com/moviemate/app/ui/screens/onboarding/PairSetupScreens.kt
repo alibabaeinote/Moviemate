@@ -87,11 +87,15 @@ fun InvitePartnerScreen(
             Column(verticalArrangement = Arrangement.spacedBy(Space.stack)) {
                 CodeBlock(invite.inviteCode)
 
+                // Sharing is the one thing this screen exists for — reading the
+                // code aloud works too, but the button that does it still gets
+                // the strong weight. Moving on is just leaving the screen, so it
+                // stays quiet, the same as "I have a code instead" below.
                 PrimaryCta(
                     label = "Share the code",
                     onClick = { context.shareInviteCode(invite.inviteCode) },
                 )
-                PrimaryCta(
+                SecondaryCta(
                     label = if (ready) "Done — next" else "Saving your ratings…",
                     onClick = onContinue,
                     enabled = ready,

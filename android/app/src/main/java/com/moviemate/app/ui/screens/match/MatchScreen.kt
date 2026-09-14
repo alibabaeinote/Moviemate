@@ -72,6 +72,21 @@ fun MatchScreen(
                         body = "Your pick lands at 9am. One film, chosen for both of you.",
                     )
 
+                    is MatchPhase.WaitingForPartner -> when (phase.stage) {
+                        PartnerWaitStage.NoPartner -> Headline(
+                            title = "WAITING ON THEM",
+                            body = "Your ratings are saved. As soon as your partner enters " +
+                                "the code and rates their own ten films, tonight's pick " +
+                                "starts arriving.",
+                        )
+
+                        PartnerWaitStage.PartnerRating -> Headline(
+                            title = "THEY'RE RATING",
+                            body = "Your partner is working through their ten films. We'll " +
+                                "notify you both the moment the first match is ready.",
+                        )
+                    }
+
                     is MatchPhase.NoMatches -> Headline(
                         title = "NO PICK TODAY",
                         body = phase.reason,

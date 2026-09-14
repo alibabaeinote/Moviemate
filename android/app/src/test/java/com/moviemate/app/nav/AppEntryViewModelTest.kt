@@ -53,12 +53,11 @@ class AppEntryViewModelTest {
     }
 
     @Test
-    fun `own onboarding done but partner still rating waits`() {
+    fun `own onboarding done but partner still rating still goes to Match`() {
+        // The Match tab shows the "waiting on partner" copy itself
+        // (MatchPhase.WaitingForPartner) — there is no separate holding screen.
         val state = session(pairId = "p1", onboardingComplete = true, pair = pair())
-        assertEquals(
-            Routes.WAITING_FOR_PARTNER,
-            AppEntryViewModel.startRouteFor(state, draftCount = 0),
-        )
+        assertEquals(Routes.MATCH, AppEntryViewModel.startRouteFor(state, draftCount = 0))
     }
 
     @Test

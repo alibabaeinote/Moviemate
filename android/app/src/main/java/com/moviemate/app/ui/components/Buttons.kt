@@ -82,6 +82,7 @@ fun SecondaryCta(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val colors = MovieMateTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
@@ -100,10 +101,14 @@ fun SecondaryCta(
                 },
                 shape = RoundedCornerShape(Radius.pill),
             )
-            .pressable(interactionSource = interactionSource, onClick = onClick)
+            .pressable(interactionSource = interactionSource, enabled = enabled, onClick = onClick)
             .padding(vertical = 15.dp, horizontal = Space.screenGutter),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = label, style = MovieMateType.cta, color = colors.actionQuietText)
+        Text(
+            text = label,
+            style = MovieMateType.cta,
+            color = colors.actionQuietText.copy(alpha = if (enabled) 1f else Opacity.disabled),
+        )
     }
 }

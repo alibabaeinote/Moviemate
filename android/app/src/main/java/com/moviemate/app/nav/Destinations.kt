@@ -18,7 +18,6 @@ object Routes {
     const val INVITE_PARTNER = "onboarding/invite"
     const val JOIN_PARTNER = "onboarding/join"
     const val NOTIFICATION_PERMISSION = "onboarding/notifications"
-    const val WAITING_FOR_PARTNER = "onboarding/waiting"
 
     const val MATCH = "match"
     const val WATCHLIST = "watchlist"
@@ -55,12 +54,15 @@ object Routes {
  * `rate` is `partner_rated` — "they've rated it, your turn" — not the
  * onboarding deck, which no notification ever links to.
  *
+ * `onboarding` is `partner_joined` — the Match tab is where the "waiting on
+ * partner" state actually lives now (MatchPhase.WaitingForPartner), not a
+ * separate screen.
+ *
  * Values must stay in step with DeepLinkTarget in
  * functions/src/notifications/types.ts.
  */
 fun routeForDeepLink(target: String?): String = when (target) {
-    "match", "rate", "reminder" -> Routes.MATCH
+    "match", "rate", "reminder", "onboarding" -> Routes.MATCH
     "watchlist" -> Routes.WATCHLIST
-    "onboarding" -> Routes.WAITING_FOR_PARTNER
     else -> Routes.MATCH
 }

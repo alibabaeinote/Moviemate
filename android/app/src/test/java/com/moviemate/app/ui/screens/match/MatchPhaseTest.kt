@@ -23,10 +23,13 @@ class MatchPhaseTest {
 
     private val stamp = Timestamp(1_700_000_000L, 0)
 
+    // Both onboarded by default: every test below is about the match lifecycle
+    // that only starts once matches are actually being generated. The separate
+    // pre-match wait has its own tests further down.
     private fun sessionFor(uid: String) = Session(
         uid = uid,
         user = User(uid = uid, pairId = "p1"),
-        pair = Pair(id = "p1", userA = "alice", userB = "bob"),
+        pair = Pair(id = "p1", userA = "alice", userB = "bob", aBothOnboarded = true),
     )
 
     private val alice = sessionFor("alice")
@@ -155,5 +158,36 @@ class MatchPhaseTest {
         val phase = matchPhaseOf(match(attemptNumber = 3), alice, film = null)
             as MatchPhase.Suggested
         assertEquals(3, phase.attemptNumber)
+    }
+
+    @Test
+    fun `no partner and not both onboarded waits on them, even with a match document`() {
+        val session = Session(
+            uid = "alice",
+            user = User(uid = "alice", pairId = "p1"),
+            pair = Pair(id = "p1", userA = "alice", userB = null, aBothOnboarded = false),
+        )
+        // A match document should never exist in this state, but the wait must
+        // win regardless of what happens to be sitting in Firestore.
+        val phase = matchPhaseOf(match(), session, film = null)
+        assertEquals(MatchPhase.WaitingForPartner(PartnerWaitStage.NoPartner), phase)
+    }
+
+    @Test
+    fun `partner joined but still rating waits on their ratings, not a NotYet day`() {
+        val session = Session(
+            uid = "alice",
+            user = User(uid = "alice", pairId = "p1"),
+            pair = Pair(id = "p1", userA = "alice", userB = "bob", aBothOnboarded = false),
+        )
+        val phase = matchPhaseOf(null, session, film = null)
+        assertEquals(MatchPhase.WaitingForPartner(PartnerWaitStage.PartnerRating), phase)
+    }
+
+    @Test
+    fun `bothOnboarded clears the wait even before today's match exists`() {
+        // alice's pair already has aBothOnboarded = true — this is what
+        // `no document means the day has not started` is actually pinning down.
+        assertEquals(MatchPhase.NotYet, matchPhaseOf(null, alice, film = null))
     }
 }

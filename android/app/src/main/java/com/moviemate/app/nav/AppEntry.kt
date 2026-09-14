@@ -61,18 +61,19 @@ class AppEntryViewModel(
         /**
          * Resume the user where onboarding actually left off.
          *
-         * The order of these checks matters: `bothOnboarded` is set by the
-         * server and is the only thing that means "the daily match loop is
-         * running", so it is tested before anything the client can infer.
+         * Once this user's own onboarding is done, the destination is always
+         * the Match tab, whether or not the server has flipped `bothOnboarded`
+         * yet — the Match screen itself shows the right "waiting on partner"
+         * copy for as long as that takes (see MatchPhase.WaitingForPartner).
+         * There is no separate holding screen to route to instead.
          */
         fun startRouteFor(session: Session?, draftCount: Int): String = when {
             session == null -> Routes.WELCOME
 
-            // Server says the pair is live. Nothing else to finish.
+            // Own onboarding done, paired or not yet fully matched — Match
+            // itself resolves the rest.
+            session.isPaired && session.onboardingComplete -> Routes.MATCH
             session.bothOnboarded -> Routes.MATCH
-
-            // Paired, own ratings done — the wait is on the partner.
-            session.isPaired && session.onboardingComplete -> Routes.WAITING_FOR_PARTNER
 
             // Paired but still rating.
             session.isPaired -> Routes.ONBOARDING_RATE

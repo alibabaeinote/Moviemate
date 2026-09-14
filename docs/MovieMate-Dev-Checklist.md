@@ -134,7 +134,7 @@
 | Invite partner (نمایش کد + share) | `createPair` |
 | Join with code | `joinPair` |
 | درخواست مجوز نوتیف (Android 13+) | — |
-| Waiting for partner | `pair.aBothOnboarded` |
+| Waiting for partner | ✅ [UPDATE] دیگر صفحه‌ی جدا نیست — داخل تب Match با منوی پایین (`MatchPhase.WaitingForPartner`) |
 | **صفحه‌ی Match** (کارت + We're in دوطرفه + Not feeling it) | هسته‌ی محصول — مهم‌ترین صفحه |
 | Fallback سه‌گزینه‌ای (بعد از ۳ رد) | `match.shortlist` (آماده است) |
 | حالت No matches | `match.noMatchesReason` (آماده است) |

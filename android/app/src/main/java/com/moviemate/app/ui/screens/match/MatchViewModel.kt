@@ -83,6 +83,10 @@ class MatchViewModel(
      * The suggested and confirmed phases need one film; the fallback screen
      * needs three. Fetching the shortlist eagerly would mean three reads a day
      * for every pair to render a screen most of them never see.
+     *
+     * `matchPhaseOf` itself decides between "waiting on partner", "not yet
+     * today" and every later phase — including when `match` is null — so
+     * there is no separate pairing gate here beyond having a pair at all.
      */
     private suspend fun render(current: Session?, match: Match?) {
         if (current == null || !current.isPaired) {
@@ -93,13 +97,8 @@ class MatchViewModel(
             return
         }
 
-        if (match == null) {
-            _state.value = UiState.Content(MatchPhase.NotYet)
-            return
-        }
-
-        val film = match.filmId.takeIf { it.isNotBlank() }?.let { filmRepository.getFilm(it) }
-        val shortlistFilms: Map<String, Film> = if (match.fallbackUnlocked) {
+        val film = match?.filmId?.takeIf { it.isNotBlank() }?.let { filmRepository.getFilm(it) }
+        val shortlistFilms: Map<String, Film> = if (match?.fallbackUnlocked == true) {
             filmRepository.getFilms(match.shortlist.map { it.filmId })
         } else {
             emptyMap()

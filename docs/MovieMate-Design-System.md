@@ -155,7 +155,7 @@ validator اجبار می‌کند هر رنگ معنایی یک `$usage` داش
 
 | Kotlin | Dark | Light | کجا استفاده می‌شود |
 |---|---|---|---|
-| `colors.surfaceGround` | `#0F0F12` | `#F1F0EC` | App background on every screen. The scaffold behind everything. |
+| `colors.surfaceGround` | `#0F0F12` | `#F8F7F4` | App background on every screen. The scaffold behind everything. |
 | `colors.surfaceRaised` | `#17171B` | `#FFFFFF` | Cards, list rows, sheets, the bottom nav bar. |
 | `colors.surfaceSunken` | `#1F1F25` | `#EFEEE9` | Taste Dial track, shared-axis track, pressed insets. |
 | `colors.surfaceAccent` | `#1B1E3A` | `#E4E7FB` | Active bottom-nav pill; the 'waiting on partner' strip. |

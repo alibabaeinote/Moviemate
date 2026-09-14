@@ -134,7 +134,7 @@ internal val DarkColors = MovieMateColorScheme(
  * role mapping differs.
  */
 internal val LightColors = MovieMateColorScheme(
-    surfaceGround = Ref.Paper50,
+    surfaceGround = Ref.Paper25,
     surfaceRaised = Ref.Paper0,
     surfaceSunken = Ref.Paper100,
     surfaceAccent = Ref.BlueWashLight,

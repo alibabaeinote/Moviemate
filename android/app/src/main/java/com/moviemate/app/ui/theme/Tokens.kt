@@ -32,6 +32,7 @@ internal object Ref {
 
     // ---- Palette: paper (lights) ----
     val Paper0 = Color(0xFFFFFFFF)
+    val Paper25 = Color(0xFFF8F7F4)  // lightened light-theme ground, close to paper.0
     val Paper50 = Color(0xFFF1F0EC)  // v8 background; v9 primary text on dark
     val Paper100 = Color(0xFFEFEEE9)
     val Paper200 = Color(0xFFDAD8D0)

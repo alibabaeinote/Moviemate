@@ -18,13 +18,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.moviemate.app.data.model.Film
 import com.moviemate.app.di.LocalAppGraph
+import com.moviemate.app.ui.components.Avatar
 import com.moviemate.app.ui.components.CtaTone
 import com.moviemate.app.ui.components.FilmPoster
 import com.moviemate.app.ui.components.PillTag
@@ -35,6 +39,7 @@ import com.moviemate.app.ui.components.pressableCard
 import com.moviemate.app.ui.core.ActionState
 import com.moviemate.app.ui.core.UiStateHost
 import com.moviemate.app.ui.core.factoryOf
+import com.moviemate.app.ui.screens.onboarding.shareInviteCode
 import com.moviemate.app.ui.theme.BorderWidth
 import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
@@ -62,6 +67,7 @@ fun MatchScreen(
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val action by viewModel.action.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     MatchScaffold {
         UiStateHost(state = state) { phase ->
@@ -72,20 +78,10 @@ fun MatchScreen(
                         body = "Your pick lands at 9am. One film, chosen for both of you.",
                     )
 
-                    is MatchPhase.WaitingForPartner -> when (phase.stage) {
-                        PartnerWaitStage.NoPartner -> Headline(
-                            title = "WAITING ON THEM",
-                            body = "Your ratings are saved. As soon as your partner enters " +
-                                "the code and rates their own ten films, tonight's pick " +
-                                "starts arriving.",
-                        )
-
-                        PartnerWaitStage.PartnerRating -> Headline(
-                            title = "THEY'RE RATING",
-                            body = "Your partner is working through their ten films. We'll " +
-                                "notify you both the moment the first match is ready.",
-                        )
-                    }
+                    is MatchPhase.WaitingForPartner -> WaitingForPartnerPhase(
+                        phase = phase,
+                        onShareAgain = { context.shareInviteCode(phase.inviteCode.orEmpty()) },
+                    )
 
                     is MatchPhase.NoMatches -> Headline(
                         title = "NO PICK TODAY",
@@ -146,6 +142,90 @@ private fun Headline(title: String, body: String) {
     val colors = MovieMateTheme.colors
     Text(title, style = MovieMateType.megaHeadline, color = colors.textPrimary)
     Text(body, style = MovieMateType.body, color = colors.textSecondary)
+}
+
+/**
+ * The pre-match wait, made concrete: both people's own avatar and ring color
+ * (Design System §4.5), not just a headline over empty space. A [NoPartner]
+ * wait also gets a real thing to do — re-sharing the code — rather than
+ * nothing but text to read.
+ */
+@Composable
+private fun WaitingForPartnerPhase(phase: MatchPhase.WaitingForPartner, onShareAgain: () -> Unit) {
+    val colors = MovieMateTheme.colors
+    val (title, body) = when (phase.stage) {
+        PartnerWaitStage.NoPartner -> "WAITING ON THEM" to
+            "Your ratings are saved. As soon as your partner enters the code and rates " +
+                "their own ten films, tonight's pick starts arriving."
+
+        PartnerWaitStage.PartnerRating -> "THEY'RE RATING" to
+            "Your partner is working through their ten films. We'll notify you both the " +
+                "moment the first match is ready."
+    }
+
+    Text(title, style = MovieMateType.megaHeadline, color = colors.textPrimary)
+    Text(body, style = MovieMateType.body, color = colors.textSecondary)
+
+    Spacer(Modifier.height(Space.stackTight))
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Space.sectionGap, Alignment.CenterHorizontally),
+    ) {
+        WaitingPerson(
+            name = phase.myName,
+            avatarUrl = phase.myAvatarUrl,
+            ringColor = if (phase.isUserA) colors.partnerA else colors.partnerB,
+        )
+        WaitingPerson(
+            name = phase.partnerName,
+            avatarUrl = phase.partnerAvatarUrl,
+            ringColor = if (phase.isUserA) colors.partnerB else colors.partnerA,
+            placeholderLabel = "Your partner",
+        )
+    }
+
+    if (phase.stage == PartnerWaitStage.NoPartner && !phase.inviteCode.isNullOrBlank()) {
+        Spacer(Modifier.height(Space.stack))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.card))
+                .background(colors.surfaceRaised)
+                .padding(Space.stack),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Space.inlineTight),
+        ) {
+            Text("YOUR CODE", style = MovieMateType.overline, color = colors.textSecondary)
+            Text(
+                phase.inviteCode,
+                style = MovieMateType.megaHeadline,
+                color = colors.textAccent,
+            )
+        }
+        Spacer(Modifier.height(Space.stackTight))
+        SecondaryCta(label = "Share the code again", onClick = onShareAgain)
+    }
+}
+
+@Composable
+private fun WaitingPerson(
+    name: String?,
+    avatarUrl: String?,
+    ringColor: Color,
+    placeholderLabel: String? = null,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Space.inlineTight),
+    ) {
+        Avatar(name = name, avatarUrl = avatarUrl, ringColor = ringColor, size = 64.dp)
+        Text(
+            text = name ?: placeholderLabel ?: "",
+            style = MovieMateType.meta,
+            color = MovieMateTheme.colors.textSecondary,
+        )
+    }
 }
 
 /** The film card, shared by every phase that has a film to show. */

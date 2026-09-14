@@ -44,4 +44,9 @@ export const messages = {
     title: `${partnerName} confirmed you watched ${filmTitle}`,
     body: "Rate it so tonight's next pick gets a little smarter.",
   }),
+
+  bothOnboarded: () => ({
+    title: "You're both set!",
+    body: "Your first pick together lands at 9am.",
+  }),
 } as const;

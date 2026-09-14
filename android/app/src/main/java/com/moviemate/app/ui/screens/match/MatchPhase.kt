@@ -24,8 +24,20 @@ sealed interface MatchPhase {
      * both sides. Shown on the Match tab itself — with the bottom nav still
      * visible — rather than a separate holding screen, so Watchlist and Us
      * stay reachable while this resolves.
+     *
+     * Carries both people's identity so the screen can show who it's actually
+     * waiting on rather than a bare headline, and the invite code so a
+     * [PartnerWaitStage.NoPartner] user can re-share it without leaving the tab.
      */
-    data class WaitingForPartner(val stage: PartnerWaitStage) : MatchPhase
+    data class WaitingForPartner(
+        val stage: PartnerWaitStage,
+        val myName: String,
+        val myAvatarUrl: String?,
+        val partnerName: String?,
+        val partnerAvatarUrl: String?,
+        val isUserA: Boolean,
+        val inviteCode: String?,
+    ) : MatchPhase
 
     /** A match was generated but nothing cleared the threshold. */
     data class NoMatches(val reason: String) : MatchPhase
@@ -91,7 +103,15 @@ fun matchPhaseOf(
         } else {
             PartnerWaitStage.NoPartner
         }
-        return MatchPhase.WaitingForPartner(stage)
+        return MatchPhase.WaitingForPartner(
+            stage = stage,
+            myName = session.displayName ?: "You",
+            myAvatarUrl = session.avatarUrl,
+            partnerName = session.partnerName,
+            partnerAvatarUrl = session.partnerAvatarUrl,
+            isUserA = session.isUserA,
+            inviteCode = session.pair?.inviteCode,
+        )
     }
 
     if (match == null) return MatchPhase.NotYet

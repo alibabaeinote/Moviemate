@@ -1,6 +1,8 @@
 package com.moviemate.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -16,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.moviemate.app.ui.theme.BorderWidth
 import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
 import com.moviemate.app.ui.theme.Radius
@@ -76,7 +79,14 @@ fun PrimaryCta(
     }
 }
 
-/** Quiet secondary action — used for "Not feeling it" and similar. */
+/**
+ * Quiet secondary action — used for "Not feeling it" and similar.
+ *
+ * Outlined, per Design System's Actions table (`colors.actionQuietBorder`):
+ * "quiet" means lower-emphasis than a filled CTA, not invisible — a bare label
+ * floating on the background gives no resting-state signal that it is tappable
+ * at all.
+ */
 @Composable
 fun SecondaryCta(
     label: String,
@@ -88,6 +98,7 @@ fun SecondaryCta(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by rememberPressScale(interactionSource)
+    val contentAlpha = if (enabled) 1f else Opacity.disabled
 
     Box(
         modifier = modifier
@@ -101,6 +112,10 @@ fun SecondaryCta(
                 },
                 shape = RoundedCornerShape(Radius.pill),
             )
+            .border(
+                BorderStroke(BorderWidth.container, colors.actionQuietBorder.copy(alpha = contentAlpha)),
+                RoundedCornerShape(Radius.pill),
+            )
             .pressable(interactionSource = interactionSource, enabled = enabled, onClick = onClick)
             .padding(vertical = 15.dp, horizontal = Space.screenGutter),
         contentAlignment = Alignment.Center,
@@ -108,7 +123,7 @@ fun SecondaryCta(
         Text(
             text = label,
             style = MovieMateType.cta,
-            color = colors.actionQuietText.copy(alpha = if (enabled) 1f else Opacity.disabled),
+            color = colors.actionQuietText.copy(alpha = contentAlpha),
         )
     }
 }

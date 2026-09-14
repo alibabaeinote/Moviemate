@@ -164,13 +164,16 @@ class MatchPhaseTest {
     fun `no partner and not both onboarded waits on them, even with a match document`() {
         val session = Session(
             uid = "alice",
-            user = User(uid = "alice", pairId = "p1"),
-            pair = Pair(id = "p1", userA = "alice", userB = null, aBothOnboarded = false),
+            user = User(uid = "alice", pairId = "p1", name = "Alice"),
+            pair = Pair(id = "p1", userA = "alice", userB = null, aBothOnboarded = false, inviteCode = "ABC123"),
         )
         // A match document should never exist in this state, but the wait must
         // win regardless of what happens to be sitting in Firestore.
-        val phase = matchPhaseOf(match(), session, film = null)
-        assertEquals(MatchPhase.WaitingForPartner(PartnerWaitStage.NoPartner), phase)
+        val phase = matchPhaseOf(match(), session, film = null) as MatchPhase.WaitingForPartner
+        assertEquals(PartnerWaitStage.NoPartner, phase.stage)
+        assertEquals("Alice", phase.myName)
+        assertEquals("ABC123", phase.inviteCode)
+        assertTrue(phase.isUserA)
     }
 
     @Test
@@ -180,8 +183,8 @@ class MatchPhaseTest {
             user = User(uid = "alice", pairId = "p1"),
             pair = Pair(id = "p1", userA = "alice", userB = "bob", aBothOnboarded = false),
         )
-        val phase = matchPhaseOf(null, session, film = null)
-        assertEquals(MatchPhase.WaitingForPartner(PartnerWaitStage.PartnerRating), phase)
+        val phase = matchPhaseOf(null, session, film = null) as MatchPhase.WaitingForPartner
+        assertEquals(PartnerWaitStage.PartnerRating, phase.stage)
     }
 
     @Test

@@ -118,6 +118,26 @@ describe("onboarding progress", () => {
     expect(pair?.status).toBe("active");
   });
 
+  /**
+   * Regression test for a real gap: this branch used to flip the flag and
+   * return with no notification at all, so the partner who had been sitting
+   * on "waiting on them" heard nothing until generateDailyMatch's next local
+   * 9am run — up to 24 hours of silence. fcmTokens are empty here (as in
+   * every fixture in this suite), so sendNotification short-circuits before
+   * ever reaching FCM; what this actually proves is that the new call does
+   * not throw and does not touch notificationLog when there is nothing to
+   * deliver to.
+   */
+  it("does not throw when notifying the partner that both are now onboarded", async () => {
+    await seed({ aBothOnboarded: false, onboardingComplete: { ali: true, sara: false } });
+    await backfillOnboarding(SARA, 9);
+
+    await rate(SARA, "film_final", 75, true);
+
+    const log = await db().collection("notificationLog").get();
+    expect(log.empty).toBe(true);
+  });
+
   it("counts only onboarding ratings toward completion", async () => {
     await seed({ aBothOnboarded: false, onboardingComplete: { ali: false, sara: false } });
 

@@ -81,6 +81,18 @@ export const onRatingComplete = onDocumentWritten(
         updatedAt: FieldValue.serverTimestamp(),
       });
       logger.info("Pair is now fully onboarded", { pairId });
+
+      // Only the partner: they are the one who has been sitting on "waiting on
+      // them" this whole time, possibly since before this run started. The
+      // person who just tapped submit already knows they finished. Without
+      // this, the earliest either of them hears anything is generateDailyMatch
+      // at the pair's next local 9am — up to 24 hours of silence.
+      const copy = messages.bothOnboarded();
+      await sendNotification(partnerUid, "both_onboarded", {
+        title: copy.title,
+        body: copy.body,
+        pairId,
+      });
       return;
     }
 

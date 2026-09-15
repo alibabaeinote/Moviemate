@@ -145,7 +145,7 @@ private fun MatchScaffold(content: @Composable () -> Unit) {
 @Composable
 private fun Headline(title: String, body: String) {
     val colors = MovieMateTheme.colors
-    Text(title, style = MovieMateType.megaHeadline, color = colors.textPrimary)
+    Text(title, style = MovieMateType.megaHeadline, color = colors.textAccent)
     Text(body, style = MovieMateType.body, color = colors.textSecondary)
 }
 
@@ -190,7 +190,7 @@ private fun WaitingForPartnerPhase(phase: MatchPhase.WaitingForPartner, onShareA
     if (celebrating) {
         Text("JUST JOINED", style = MovieMateType.overline, color = colors.textReward)
     }
-    Text(title, style = MovieMateType.megaHeadline, color = colors.textPrimary)
+    Text(title, style = MovieMateType.megaHeadline, color = colors.textAccent)
     Text(body, style = MovieMateType.body, color = colors.textSecondary)
 
     Spacer(Modifier.height(Space.stackTight))
@@ -311,7 +311,7 @@ private fun SuggestedPhase(
 ) {
     val colors = MovieMateTheme.colors
 
-    Text("TONIGHT", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+    Text("TONIGHT", style = MovieMateType.megaHeadline, color = colors.textAccent)
 
     Row(horizontalArrangement = Arrangement.spacedBy(Space.inline)) {
         PillTag("${phase.match.score}% match", TagTone.Accent)
@@ -380,7 +380,7 @@ private fun FallbackPhase(
 ) {
     val colors = MovieMateTheme.colors
 
-    Text("YOUR CALL", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+    Text("YOUR CALL", style = MovieMateType.megaHeadline, color = colors.textAccent)
     Text(
         "None of the three landed. Here they all are — pick one together, or wait " +
             "for tomorrow's.",
@@ -445,7 +445,7 @@ private fun ConfirmedPhase(
 ) {
     val colors = MovieMateTheme.colors
 
-    Text("YOU'RE BOTH IN", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+    Text("YOU'RE BOTH IN", style = MovieMateType.megaHeadline, color = colors.textAccent)
 
     Spacer(Modifier.height(Space.stackTight))
 
@@ -474,7 +474,7 @@ private fun ConfirmedPhase(
 private fun WatchedPhase(phase: MatchPhase.Watched, onRate: () -> Unit) {
     val colors = MovieMateTheme.colors
 
-    Text("HOW WAS IT?", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+    Text("HOW WAS IT?", style = MovieMateType.megaHeadline, color = colors.textAccent)
     Text(
         "Rate it separately — the shared score is what teaches the next pick.",
         style = MovieMateType.body,

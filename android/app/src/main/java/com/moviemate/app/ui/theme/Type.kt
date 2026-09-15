@@ -23,13 +23,14 @@ import com.moviemate.app.R
  * what forces a second set of styles the moment a second theme exists.
  *
  * Two families, with a hard split:
- *  - Big Shoulders Display: large headlines, film titles, stat numbers. Nothing else.
- *  - Inter: body, meta, tag labels, button text, nav labels, forms.
+ *  - Space Grotesk: large headlines, film titles, stat numbers. Nothing else.
+ *  - Plus Jakarta Sans: body, meta, tag labels, button text, nav labels, forms.
  *
- * Button text is deliberately Inter. Archivo Black was too wide and Anton was
- * unreadable at small sizes; Big Shoulders is drawn condensed rather than
- * squeezed, which is why it survives at 12sp — but it still loses to Inter on a
- * button.
+ * v10 replaced both faces together (was Big Shoulders Display + Inter): once
+ * the palette dropped to a single accent, weight alone stopped being enough
+ * contrast between headline and body, so the pairing now comes from two
+ * genuinely distinct families rather than two weights of a related one.
+ * Button text is still deliberately the body face, never the display one.
  */
 
 /**
@@ -47,28 +48,27 @@ import com.moviemate.app.R
 private fun variableWeight(weight: FontWeight) =
     FontVariation.Settings(FontVariation.weight(weight.weight))
 
+/** Space Grotesk's variable axis tops out at 700 — no headline role asks for more. */
 @OptIn(ExperimentalTextApi::class)
-val BigShouldersDisplay = FontFamily(
-    Font(R.font.big_shoulders_display_variable, FontWeight.Bold, variationSettings = variableWeight(FontWeight.Bold)),
-    Font(R.font.big_shoulders_display_variable, FontWeight.ExtraBold, variationSettings = variableWeight(FontWeight.ExtraBold)),
-    Font(R.font.big_shoulders_display_variable, FontWeight.Black, variationSettings = variableWeight(FontWeight.Black)),
+val SpaceGrotesk = FontFamily(
+    Font(R.font.space_grotesk_variable, FontWeight.Bold, variationSettings = variableWeight(FontWeight.Bold)),
 )
 
 @OptIn(ExperimentalTextApi::class)
-val Inter = FontFamily(
-    Font(R.font.inter_variable, FontWeight.Normal, variationSettings = variableWeight(FontWeight.Normal)),
-    Font(R.font.inter_variable, FontWeight.Medium, variationSettings = variableWeight(FontWeight.Medium)),
-    Font(R.font.inter_variable, FontWeight.SemiBold, variationSettings = variableWeight(FontWeight.SemiBold)),
-    Font(R.font.inter_variable, FontWeight.Bold, variationSettings = variableWeight(FontWeight.Bold)),
-    Font(R.font.inter_variable, FontWeight.ExtraBold, variationSettings = variableWeight(FontWeight.ExtraBold)),
+val PlusJakartaSans = FontFamily(
+    Font(R.font.plus_jakarta_sans_variable, FontWeight.Normal, variationSettings = variableWeight(FontWeight.Normal)),
+    Font(R.font.plus_jakarta_sans_variable, FontWeight.Medium, variationSettings = variableWeight(FontWeight.Medium)),
+    Font(R.font.plus_jakarta_sans_variable, FontWeight.SemiBold, variationSettings = variableWeight(FontWeight.SemiBold)),
+    Font(R.font.plus_jakarta_sans_variable, FontWeight.Bold, variationSettings = variableWeight(FontWeight.Bold)),
+    Font(R.font.plus_jakarta_sans_variable, FontWeight.ExtraBold, variationSettings = variableWeight(FontWeight.ExtraBold)),
 )
 
 object MovieMateType {
 
-    /** Page headline or date. Uppercase, tight leading. */
+    /** Page headline or date. Uppercase, tight leading. Pair with `colors.textAccent`. */
     val megaHeadline = TextStyle(
-        fontFamily = BigShouldersDisplay,
-        fontWeight = FontWeight.Black,
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.Bold,
         fontSize = 54.sp,
         lineHeight = 51.84.sp, // 0.96
         letterSpacing = (-0.5).sp,
@@ -76,31 +76,31 @@ object MovieMateType {
 
     /** Film or list-item title. */
     val filmTitle = TextStyle(
-        fontFamily = BigShouldersDisplay,
-        fontWeight = FontWeight.ExtraBold,
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.Bold,
         fontSize = 34.sp,
         lineHeight = 34.sp,
     )
 
     /** Stat number, e.g. "98". Pair with `colors.textAccent`. */
     val statNumber = TextStyle(
-        fontFamily = BigShouldersDisplay,
-        fontWeight = FontWeight.Black,
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.Bold,
         fontSize = 44.sp,
         lineHeight = 39.6.sp, // 0.9
     )
 
     /** Stat caption, e.g. "shared taste". */
     val statCaption = TextStyle(
-        fontFamily = BigShouldersDisplay,
-        fontWeight = FontWeight.ExtraBold,
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
         lineHeight = 24.sp,
     )
 
     /** Body copy. */
     val body = TextStyle(
-        fontFamily = Inter,
+        fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Normal,
         fontSize = 14.5.sp,
         lineHeight = 1.55.em,
@@ -108,14 +108,14 @@ object MovieMateType {
 
     /** Meta line under a title. Pair with `colors.textSecondary`. */
     val meta = TextStyle(
-        fontFamily = Inter,
+        fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Medium,
         fontSize = 13.5.sp,
     )
 
     /** CTA button label — body face, never the display face. */
     val cta = TextStyle(
-        fontFamily = Inter,
+        fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Bold,
         fontSize = 15.5.sp,
         textAlign = TextAlign.Center,
@@ -123,21 +123,21 @@ object MovieMateType {
 
     /** Pill tag label. */
     val tag = TextStyle(
-        fontFamily = Inter,
+        fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Bold,
         fontSize = 12.5.sp,
     )
 
     /** Bottom-nav label. */
     val navLabel = TextStyle(
-        fontFamily = Inter,
+        fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 11.sp,
     )
 
     /** Small uppercase section label. Pair with `colors.textSecondary`. */
     val overline = TextStyle(
-        fontFamily = Inter,
+        fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Bold,
         fontSize = 10.5.sp,
         letterSpacing = 0.12.em,
@@ -145,7 +145,7 @@ object MovieMateType {
 
     /** Form field label. */
     val fieldLabel = TextStyle(
-        fontFamily = Inter,
+        fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 13.sp,
     )

@@ -77,7 +77,7 @@ fun ProfileEditScreen(onDone: () -> Unit) {
             .padding(horizontal = Space.screenGutter, vertical = Space.screenTop),
         verticalArrangement = Arrangement.spacedBy(Space.stack),
     ) {
-        Text("YOUR PROFILE", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("YOUR PROFILE", style = MovieMateType.megaHeadline, color = colors.textAccent)
 
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Avatar(

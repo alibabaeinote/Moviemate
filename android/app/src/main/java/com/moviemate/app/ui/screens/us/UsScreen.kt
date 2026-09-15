@@ -64,7 +64,7 @@ fun UsScreen(onSignedOut: () -> Unit, onEditProfile: () -> Unit) {
             .padding(horizontal = Space.screenGutter, vertical = Space.screenTop),
         verticalArrangement = Arrangement.spacedBy(Space.stack),
     ) {
-        Text("US", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("US", style = MovieMateType.megaHeadline, color = colors.textAccent)
 
         UiStateHost(state = state) { stats ->
             Column(verticalArrangement = Arrangement.spacedBy(Space.stack)) {

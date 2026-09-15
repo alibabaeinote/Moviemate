@@ -66,7 +66,7 @@ fun RateWatchedScreen(
             .padding(horizontal = Space.screenGutter, vertical = Space.screenTop),
         verticalArrangement = Arrangement.spacedBy(Space.stack),
     ) {
-        Text("HOW WAS IT?", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("HOW WAS IT?", style = MovieMateType.megaHeadline, color = colors.textAccent)
 
         UiStateHost(state = filmState) { film ->
             Column(verticalArrangement = Arrangement.spacedBy(Space.stack)) {

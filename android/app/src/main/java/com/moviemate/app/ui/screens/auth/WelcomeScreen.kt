@@ -52,7 +52,7 @@ fun WelcomeScreen(onSignedIn: () -> Unit) {
             .padding(horizontal = Space.screenGutter, vertical = Space.screenTop),
         verticalArrangement = Arrangement.spacedBy(Space.stack),
     ) {
-        Text("MOVIEMATE", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("MOVIEMATE", style = MovieMateType.megaHeadline, color = colors.textAccent)
         Text(
             "One film a night, picked for both of you.",
             style = MovieMateType.body,

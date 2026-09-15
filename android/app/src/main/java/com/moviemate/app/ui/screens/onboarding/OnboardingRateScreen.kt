@@ -102,7 +102,7 @@ private fun GenreStep(
 ) {
     val colors = MovieMateTheme.colors
 
-    Text("WHAT DO YOU LIKE?", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+    Text("WHAT DO YOU LIKE?", style = MovieMateType.megaHeadline, color = colors.textAccent)
     Text(
         "Pick a few. We'll build your rating deck from them — you can change your mind later.",
         style = MovieMateType.body,
@@ -157,7 +157,7 @@ private fun DeckStep(
     if (film == null) {
         // Deck ran out before the target. Offering more films is the only
         // useful move — the alternative is a dead end mid-onboarding.
-        Text("A few more?", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("A few more?", style = MovieMateType.megaHeadline, color = colors.textAccent)
         Text(
             "That's the end of this deck and we're still ${step.remaining} short. " +
                 "Here are some more.",

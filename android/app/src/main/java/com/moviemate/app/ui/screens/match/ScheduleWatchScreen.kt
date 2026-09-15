@@ -58,7 +58,7 @@ fun ScheduleWatchScreen(
             .padding(horizontal = Space.screenGutter, vertical = Space.screenTop),
         verticalArrangement = Arrangement.spacedBy(Space.stack),
     ) {
-        Text("WHEN?", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("WHEN?", style = MovieMateType.megaHeadline, color = colors.textAccent)
         Text(
             "We'll nudge you both fifteen minutes before.",
             style = MovieMateType.body,

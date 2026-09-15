@@ -73,7 +73,7 @@ fun InvitePartnerScreen(
     LaunchedEffect(Unit) { viewModel.startInvite() }
 
     OnboardingScaffold {
-        Text("INVITE YOUR PARTNER", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("INVITE YOUR PARTNER", style = MovieMateType.megaHeadline, color = colors.textAccent)
         Text(
             "They install MovieMate, enter this code, and rate their own ten films. " +
                 "Then you both start getting one pick a night.",
@@ -148,7 +148,7 @@ fun JoinPartnerScreen(
     LaunchedEffect(ready) { if (ready) onJoined() }
 
     OnboardingScaffold {
-        Text("JOIN YOUR PARTNER", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("JOIN YOUR PARTNER", style = MovieMateType.megaHeadline, color = colors.textAccent)
         Text(
             "Enter the code they sent you.",
             style = MovieMateType.body,

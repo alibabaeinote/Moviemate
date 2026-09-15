@@ -8,8 +8,8 @@ Both families ship with the repo — nothing to download.
 
 | File | Family | Licence |
 |---|---|---|
-| `inter_variable.ttf` | Inter | SIL OFL 1.1 |
-| `big_shoulders_display_variable.ttf` | Big Shoulders Display | SIL OFL 1.1 |
+| `plus_jakarta_sans_variable.ttf` | Plus Jakarta Sans | SIL OFL 1.1 |
+| `space_grotesk_variable.ttf` | Space Grotesk | SIL OFL 1.1 |
 
 The font files themselves are in `app/src/main/res/font/`. Licence texts are
 in `app/src/main/assets/licenses/`, which is what the OFL
@@ -26,8 +26,11 @@ passed as a variation axis. `Type.kt` does that via `FontVariation.Settings`.
 Declaring only the `FontWeight` would silently render every style at the
 default instance, which looks like the font "not working".
 
-## Substituting the display face is not a free choice
+## v10 pairing
 
-Archivo Black (too wide) and Anton (unreadable at small sizes) were both tried
-and rejected. Big Shoulders is drawn condensed rather than squeezed, which is
-why it survives at 12sp. See `docs/MovieMate-Design-System.md` §5.
+Big Shoulders Display and Inter (v9) were replaced together: the whole point
+of the new pairing is that weight alone stopped being enough contrast once
+the palette dropped to a single accent, so headline and body now come from
+two visually distinct families rather than two weights of a related one.
+Space Grotesk's variable axis tops out at 700 — no headline role asks for
+800/900 anymore, see `Type.kt`. See `docs/MovieMate-Design-System.md` §5.

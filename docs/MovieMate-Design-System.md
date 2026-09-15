@@ -1,6 +1,6 @@
 # MovieMate — Design System
 
-**Version**: 9.0.0
+**Version**: 10.0.0
 **Status**: 🟢 Active — extensible by design (v8 was marked "locked", which is why it drifted)
 **Source of truth**: [`design/tokens.json`](../design/tokens.json)
 **Validator**: `node design/validate-tokens.mjs`
@@ -127,11 +127,21 @@ comp.sharedAxis.pinSize
 مرجانی می‌گذاشت که **۲.۸۴:۱** است و مردود. در v9 اصلاً `CtaTone.Coral` وجود ندارد —
 قانون در type system اجرا می‌شود، نه فقط در متن سند.
 
-### ۴.۴ قانون لیمویی
+### ۴.۴ لیمویی — از accent دوم به استثنای عملکردی (v10)
 
-لیمویی `#CCE83B` **فقط برای تکمیل** است: تعهد متقابل کامل شد، «We watched it»،
-بهترین هفته. در v8 روی هر تگی خرج می‌شد و برای همین به‌عنوان تزئین خوانده می‌شد.
-یک accent که همه‌جا هست، accent نیست.
+تا v9، لیمویی `#CCE83B` accent دوم سیستم بود: پرکننده‌ی دکمه‌ی پاداش، تگ تکمیل،
+رنگ شریک B در تیره. v10 آن را از همه‌جا برداشت **به‌جز دو مورد** که دلیل
+عملکردی دارند، نه سلیقه‌ای:
+
+| نقش | چرا هنوز لیمویی است |
+|---|---|
+| `sys.dark.action.focusRing` | باید هم روی زمینه و هم روی **پرکننده‌ی آبی دکمه** دیده شود. رینگ فوکوس هم‌رنگ با آبی روی آبی نامرئی است. |
+| `sys.dark.partner.b` | هویت شریک یک احساس نیست — یک الزام «متفاوت از شریک A» است، و `blue.400` همین‌الان رنگ شریک A است. |
+
+همه‌جای دیگر (`action.reward.fill`, `text.reward`, `status.committed`, دکمه‌های
+quiet) حالا همان آبی‌ای را دارند که `action.primary.fill` دارد — **یک accent**،
+نه دو. این یعنی «دکمه‌ی پاداش» و «دکمه‌ی اصلی» از نظر رنگ یکسان دیده می‌شوند؛
+تفکیک‌شان در کد با `CtaTone` باقی می‌ماند، نه در پالت.
 
 ### ۴.۵ رنگ شریک‌ها
 
@@ -174,11 +184,11 @@ validator اجبار می‌کند هر رنگ معنایی یک `$usage` داش
 | Kotlin | Dark | Light | کجا استفاده می‌شود |
 |---|---|---|---|
 | `colors.textPrimary` | `#F1F0EC` | `#101012` | Film titles, headlines, body copy, stat numbers that are not accented. |
-| `colors.textSecondary` | `#9B9B96` | `#696963` | Meta lines: '2021 · Sci-Fi', 'Sara added this', nav labels when inactive. |
+| `colors.textSecondary` | `#9B9B96` | `#101012` | Meta lines: '2021 · Sci-Fi', 'Sara added this', nav labels when inactive. |
 | `colors.textAccent` | `#7C89FF` | `#1F2FE3` | Match score, active nav label + icon, links. NOT the button fill. |
-| `colors.textReward` | `#CCE83B` | `#101012` | 'Ready to watch' group label; a completed-state figure. |
+| `colors.textReward` | `#7C89FF` | `#1F2FE3` | 'Ready to watch' group label; a completed-state figure. |
 | `colors.textOnFill` | `#FFFFFF` | `#FFFFFF` | Label inside a primary button. |
-| `colors.textOnReward` | `#101012` | `#101012` | Label inside a reward button, and inside a lime tag. |
+| `colors.textOnReward` | `#FFFFFF` | `#FFFFFF` | Label inside a reward button, and inside a reward tag. |
 
 #### Actions — buttons and controls
 
@@ -187,10 +197,10 @@ validator اجبار می‌کند هر رنگ معنایی یک `$usage` داش
 | `colors.actionPrimaryFill` | `#1F2FE3` | `#1F2FE3` | Primary CTA background; the blue pill tag. |
 | `colors.actionPrimaryHover` | `#2937F0` | `#2937F0` | Primary CTA, hovered. |
 | `colors.actionPrimaryPressed` | `#1826B8` | `#1826B8` | Primary CTA, pressed. |
-| `colors.actionRewardFill` | `#CCE83B` | `#CCE83B` | 'We watched it', 'I'm in too', the lime tag, a filled commit ring. |
-| `colors.actionRewardHover` | `#D6F04E` | `#D6F04E` | Reward CTA, hovered. |
-| `colors.actionQuietBorder` | `#2A2A32` | `#DAD8D0` | Outline of a secondary/quiet button. |
-| `colors.actionQuietText` | `#9B9B96` | `#696963` | Label of a secondary/quiet button; 'Not feeling it'. |
+| `colors.actionRewardFill` | `#1F2FE3` | `#1F2FE3` | 'We watched it', 'I'm in too', the reward tag, a filled commit ring. |
+| `colors.actionRewardHover` | `#2937F0` | `#2937F0` | Reward CTA, hovered. |
+| `colors.actionQuietBorder` | `#7C89FF` | `#1F2FE3` | Outline of a secondary/quiet button. |
+| `colors.actionQuietText` | `#7C89FF` | `#1F2FE3` | Label of a secondary/quiet button; 'Not feeling it'. |
 | `colors.actionFocusRing` | `#CCE83B` | `#1826B8` | Keyboard focus ring on any interactive element. |
 
 #### Status — what state something is in
@@ -198,7 +208,7 @@ validator اجبار می‌کند هر رنگ معنایی یک `$usage` داش
 | Kotlin | Dark | Light | کجا استفاده می‌شود |
 |---|---|---|---|
 | `colors.statusDecorative` | `#FF6A46` | `#FF6A46` | 'Waiting on you' group label; ornamental dot clusters. Never a fill behind text. |
-| `colors.statusCommitted` | `#CCE83B` | `#101012` | A commit ring that is filled; the checkmark badge. |
+| `colors.statusCommitted` | `#7C89FF` | `#1F2FE3` | A commit ring that is filled; the checkmark badge. |
 | `colors.statusPending` | `#2A2A32` | `#DAD8D0` | A commit ring that is empty; an unfilled progress step. |
 
 #### Partner identity
@@ -212,17 +222,22 @@ validator اجبار می‌کند هر رنگ معنایی یک `$usage` داش
 
 ---
 
-## ۵. تایپوگرافی
+## ۵. تایپوگرافی (v10)
 
-دو خانواده، با تفکیک سخت:
+دو خانواده، با تفکیک سخت — هر دو در v10 عوض شدند:
 
-- **Big Shoulders Display** (700/800/900) — فقط: هدلاین بزرگ، عنوان فیلم، عدد آماری
-- **Inter** (400–800) — همه‌چیز دیگر، از جمله **متن دکمه**
+- **Space Grotesk** (700، سقف محور متغیر) — فقط: هدلاین بزرگ، عنوان فیلم، عدد آماری
+- **Plus Jakarta Sans** (400–800) — همه‌چیز دیگر، از جمله **متن دکمه**
 
-### چرا Inter روی دکمه
-قبلاً Archivo Black (خیلی عریض) و Anton (در سایز کوچک ناخوانا) امتحان شد.
-Big Shoulders چون واقعاً condensed طراحی شده تا ۱۲sp خوانا می‌ماند — ولی روی دکمه
-هنوز به Inter می‌بازد.
+### چرا این جفت عوض شد
+تا v9 (Big Shoulders Display + Inter)، تفکیک هدلاین/بدنه عمدتاً روی **وزن** فونت
+سوار بود. حالا که پالت به یک accent واحد رسیده (بخش ۴.۴)، وزن به‌تنهایی کنتراست
+کافی نمی‌دهد — دو خانواده‌ی واقعاً متفاوت لازم بود، نه دو وزن از یک خانواده‌ی مرتبط.
+
+محور متغیر Space Grotesk تا ۷۰۰ می‌رود، نه بیشتر — پس هیچ نقش هدلاینی دیگر
+`extrabold`/`black` نمی‌خواهد؛ همه روی `bold` (۷۰۰) نشسته‌اند.
+
+متن دکمه همچنان عمداً فونت بدنه است، نه فونت نمایشی.
 
 ### استایل‌های تایپ رنگ ندارند
 
@@ -265,14 +280,19 @@ Space.screenTop      // بالای اولین عنصر
 
 این یعنی «فاصله‌ی بین بلوک‌های روی‌هم» یک‌جا قابل تنظیم است.
 
-### رادیوس
+### رادیوس (v10: منحنی ملایم، نه تمام‌گرد)
+
+تا v9 تقریباً همه‌چیز — از دکمه تا کارت — روی `pill` (۹۹۹dp) نشسته بود. v10 این
+مقیاس را می‌شکند: دکمه و کارت حالا یک انحنای نرم و متوسط دارند، نه یک انتهای
+stadium. `pill` جایی می‌ماند که این شکل واقعاً یک قرارداد است — نوار ناوبری، تگ،
+چیپ‌های توگل — نه پیش‌فرض همه‌چیز.
 
 | نام | مقدار | کجا |
 |---|---|---|
-| `Radius.chip` | 12dp | چیپ کوچک درون‌خطی |
-| `Radius.card` | 24dp | کارت استاندارد |
-| `Radius.hero` | 28dp | کارت بزرگ |
-| `Radius.pill` | 999dp | دکمه، تگ، آواتار، نوار ناوبری |
+| `Radius.chip` | 10dp | چیپ کوچک درون‌خطی |
+| `Radius.card` | 14dp | کارت استاندارد، **و حالا دکمه‌ها** |
+| `Radius.hero` | 16dp | کارت بزرگ |
+| `Radius.pill` | 999dp | نوار ناوبری، تگ، چیپ توگل، آواتار (دایره) — **دست‌نخورده** |
 
 ---
 
@@ -511,6 +531,32 @@ SVG خطی، گرید ۲۴×۲۴، stroke ۱.۷۵–۲dp، `round` برای cap 
 ---
 
 ## ۱۶. تاریخچه‌ی نسخه‌ها
+
+### v10.0.0 — ۲۰۲۶/۰۹/۱۵
+
+**تغییرات شکننده**
+- پالت به **یک accent واحد** رسید: لیمویی از `action.reward.*`, `text.reward`,
+  `text.onReward`, `status.committed`, و دکمه‌های quiet (هر دو تم) حذف شد و
+  جایش را همان آبی گرفت که `action.primary.fill` دارد. دو استثنای عملکردی
+  باقی ماندند — `sys.dark.action.focusRing` و `sys.dark.partner.b` — بخش ۴.۴.
+- تایپوگرافی هدلاین از **Big Shoulders Display** به **Space Grotesk** رفت؛
+  بدنه از **Inter** به **Plus Jakarta Sans** — بخش ۵. هر چهار نقش هدلاینی از
+  `extrabold`/`black` به `bold` رسیدند (محور متغیر فونت جدید تا ۷۰۰ می‌رود).
+- مقیاس رادیوس از عمدتاً `pill` (۹۹۹dp) به یک منحنی متوسط رفت:
+  `chip` 12→10dp، `card` 24→14dp، `hero` 28→16dp. دکمه‌ها (`PrimaryCta`,
+  `SecondaryCta`) از `Radius.pill` به `Radius.card` منتقل شدند — بخش ۶.
+  `Radius.pill` روی نوار ناوبری، تگ و چیپ توگل دست‌نخورده ماند.
+- `sys.light.text.secondary` با `sys.light.text.primary` یکی شد (هر دو
+  `ink.900`) — متن بدنه روی تم روشن دیگر تن ثانویه ندارد. تم تیره دست‌نخورده
+  ماند: خاکستری ثانویه روی زمینه‌ی نزدیک‌به‌مشکی هنوز لازم است تا خوانا بماند.
+
+**بدون تغییر (عمدی)**
+- `sys.light.surface.ground` همان `paper.25` ماند، نه `paper.0` خالص. تفاوت
+  تونال بین ground و raised تنها چیزی است که کارت‌ها را بدون border اضافه در
+  حدود ۸ کامپوننت جدا نگه می‌دارد؛ یکی‌کردنشان یک تغییر کامپوننت‌به‌کامپوننت
+  می‌طلبید که بدون دستگاه واقعی قابل تأیید بصری نبود.
+- تم تیره در ground/surface/elevation دست‌نخورده ماند — این نسخه فقط روی تم
+  روشن آزمایش و تأیید شد.
 
 ### v9.0.0 — ۲۰۲۶/۰۹/۰۴
 

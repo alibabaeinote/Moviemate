@@ -26,7 +26,11 @@ import com.moviemate.app.ui.theme.Opacity
 import com.moviemate.app.ui.theme.Space
 
 /**
- * Full-width pill CTA.
+ * Full-width CTA.
+ *
+ * v10 moved off the full pill shape to [Radius.card] — a soft, moderate curve
+ * rather than a stadium end. The bottom nav keeps the pill; buttons no longer
+ * do (Design System §3, radius scale).
  *
  * [tone] picks a semantic role rather than a colour, so "the reward button" stays
  * the reward button when the palette moves.
@@ -69,7 +73,7 @@ fun PrimaryCta(
             .scale(scale)
             .background(
                 color = if (enabled) fill else fill.copy(alpha = Opacity.disabled),
-                shape = RoundedCornerShape(Radius.pill),
+                shape = RoundedCornerShape(Radius.card),
             )
             .pressable(interactionSource = interactionSource, enabled = enabled, onClick = onClick)
             .padding(vertical = 15.dp, horizontal = Space.screenGutter),
@@ -110,11 +114,11 @@ fun SecondaryCta(
                 } else {
                     Color.Transparent
                 },
-                shape = RoundedCornerShape(Radius.pill),
+                shape = RoundedCornerShape(Radius.card),
             )
             .border(
                 BorderStroke(BorderWidth.container, colors.actionQuietBorder.copy(alpha = contentAlpha)),
-                RoundedCornerShape(Radius.pill),
+                RoundedCornerShape(Radius.card),
             )
             .pressable(interactionSource = interactionSource, enabled = enabled, onClick = onClick)
             .padding(vertical = 15.dp, horizontal = Space.screenGutter),

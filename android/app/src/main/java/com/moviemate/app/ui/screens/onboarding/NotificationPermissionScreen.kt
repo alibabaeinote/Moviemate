@@ -45,7 +45,7 @@ fun NotificationPermissionScreen(onDone: () -> Unit) {
     if (!needsPermission) return
 
     OnboardingScaffold {
-        Text("ONE PICK A NIGHT", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("ONE PICK A NIGHT", style = MovieMateType.megaHeadline, color = colors.textAccent)
         Text(
             "We send one notification a day, when your match is ready. " +
                 "That's the whole thing — no streak nags, no re-engagement pokes.",

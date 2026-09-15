@@ -70,9 +70,13 @@ internal object Ref {
     val D8 = 56.dp
 
     // ---- Radius ----
-    val RadiusChip = 12.dp
-    val RadiusCard = 24.dp
-    val RadiusHero = 28.dp
+    // v10: cards, chips and hero art moved from a heavily-rounded scale to a
+    // moderate curve — soft, not sharp, but no longer the system's only
+    // geometry. Pill is untouched: the bottom nav, tags and toggles keep
+    // their full stadium shape.
+    val RadiusChip = 10.dp
+    val RadiusCard = 14.dp
+    val RadiusHero = 16.dp
     val RadiusPill = 999.dp
 
     // ---- Motion ----

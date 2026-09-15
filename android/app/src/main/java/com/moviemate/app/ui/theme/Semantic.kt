@@ -106,24 +106,40 @@ internal val DarkColors = MovieMateColorScheme(
     textPrimary = Ref.Paper50,
     textSecondary = Ref.Ink700,
     textAccent = Ref.Blue400,     // NOT Blue600 — that measures 2.35:1 here
-    textReward = Ref.Lime500,
+    // v10: was Lime500. One accent now — reward reuses the same blue.400
+    // already validated as text on dark.
+    textReward = Ref.Blue400,
     textOnFill = Ref.Paper0,
-    textOnReward = Ref.Ink900,
+    // v10: reward.fill is now the same blue as primary.fill, so this reuses
+    // textOnFill's already-validated pairing rather than dark-on-lime.
+    textOnReward = Ref.Paper0,
 
     actionPrimaryFill = Ref.Blue600,
     actionPrimaryHover = Ref.Blue500,
     actionPrimaryPressed = Ref.Blue700,
-    actionRewardFill = Ref.Lime500,
-    actionRewardHover = Ref.Lime400,
-    actionQuietBorder = Ref.Ink3,
-    actionQuietText = Ref.Ink700,
+    // v10: unified with actionPrimaryFill/Hover — one accent carries every
+    // button now, reward included.
+    actionRewardFill = Ref.Blue600,
+    actionRewardHover = Ref.Blue500,
+    // v10: were Ink3/Ink700 (neutral). Secondary buttons now outline in the
+    // same accent as everything else.
+    actionQuietBorder = Ref.Blue400,
+    actionQuietText = Ref.Blue400,
+    // Deliberately still lime — the one functional exception to the
+    // single-accent rule. It has to clear both the ground and a blue fill,
+    // which a same-hue ring on a blue button cannot do.
     actionFocusRing = Ref.Lime500,
 
     statusDecorative = Ref.Coral500,
-    statusCommitted = Ref.Lime500,
+    // v10: was Lime500. Reuses the accent-on-dark pairing already validated
+    // for textAccent.
+    statusCommitted = Ref.Blue400,
     statusPending = Ref.Ink3,
 
     partnerA = Ref.Blue400,
+    // Deliberately still lime — the other functional exception. Partner
+    // identity is not a sentiment, it's a distinct-from-partnerA
+    // requirement, and Blue400 is already userA's colour.
     partnerB = Ref.Lime500,
 
     isDark = true,
@@ -145,25 +161,36 @@ internal val LightColors = MovieMateColorScheme(
     borderWarning = Ref.Paper200,
 
     textPrimary = Ref.Ink900,
-    textSecondary = Ref.Ink500,
+    // v10: was Ink500 (a warm grey). Body copy is now the same ink as
+    // primary text — no secondary tone on light.
+    textSecondary = Ref.Ink900,
     textAccent = Ref.Blue600,
-    // Lime cannot carry text on paper, so the reward reads as ink and lime
-    // becomes its fill instead.
-    textReward = Ref.Ink900,
+    // v10: was Ink900 — lime couldn't carry text on light, so reward text
+    // read as ink. Lime is gone entirely now; reward reads as the accent,
+    // same as everywhere else.
+    textReward = Ref.Blue600,
     textOnFill = Ref.Paper0,
-    textOnReward = Ref.Ink900,
+    // v10: reward.fill is now the same blue as primary.fill, so this reuses
+    // textOnFill's already-validated pairing rather than dark-on-lime.
+    textOnReward = Ref.Paper0,
 
     actionPrimaryFill = Ref.Blue600,
     actionPrimaryHover = Ref.Blue500,
     actionPrimaryPressed = Ref.Blue700,
-    actionRewardFill = Ref.Lime500,
-    actionRewardHover = Ref.Lime400,
-    actionQuietBorder = Ref.Paper200,
-    actionQuietText = Ref.Ink500,
+    // v10: unified with actionPrimaryFill/Hover — one accent carries every
+    // button now, reward included.
+    actionRewardFill = Ref.Blue600,
+    actionRewardHover = Ref.Blue500,
+    // v10: were Paper200/Ink500 (neutral). Secondary buttons now outline in
+    // the same accent as everything else.
+    actionQuietBorder = Ref.Blue600,
+    actionQuietText = Ref.Blue600,
     actionFocusRing = Ref.Blue700,
 
     statusDecorative = Ref.Coral500,
-    statusCommitted = Ref.Ink900,
+    // v10: was Ink900. Unified with the accent so it doesn't read as a
+    // stray neutral in an otherwise blue system.
+    statusCommitted = Ref.Blue600,
     statusPending = Ref.Paper200,
 
     partnerA = Ref.Blue600,

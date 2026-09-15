@@ -84,7 +84,7 @@ fun WatchlistScreen() {
             .padding(horizontal = Space.screenGutter),
     ) {
         Spacer(Modifier.height(Space.screenTop))
-        Text("YOUR LIST", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("YOUR LIST", style = MovieMateType.megaHeadline, color = colors.textAccent)
         Spacer(Modifier.height(Space.stackTight))
         PrimaryCta(label = "Add a film", onClick = viewModel::openSearch)
         Spacer(Modifier.height(Space.stack))
@@ -226,7 +226,7 @@ private fun AddFilmSheet(
             .padding(horizontal = Space.screenGutter),
     ) {
         Spacer(Modifier.height(Space.screenTop))
-        Text("ADD A FILM", style = MovieMateType.megaHeadline, color = colors.textPrimary)
+        Text("ADD A FILM", style = MovieMateType.megaHeadline, color = colors.textAccent)
         Spacer(Modifier.height(Space.stackTight))
 
         OutlinedTextField(

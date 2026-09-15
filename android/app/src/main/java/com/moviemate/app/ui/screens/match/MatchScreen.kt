@@ -17,7 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +49,7 @@ import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
 import com.moviemate.app.ui.theme.Radius
 import com.moviemate.app.ui.theme.Space
+import kotlinx.coroutines.delay
 
 /**
  * Tonight's pick — the loop the whole product exists for.
@@ -153,16 +158,38 @@ private fun Headline(title: String, body: String) {
 @Composable
 private fun WaitingForPartnerPhase(phase: MatchPhase.WaitingForPartner, onShareAgain: () -> Unit) {
     val colors = MovieMateTheme.colors
-    val (title, body) = when (phase.stage) {
-        PartnerWaitStage.NoPartner -> "WAITING ON THEM" to
+
+    // The wait has exactly one moment worth celebrating: the instant the
+    // partner's avatar resolves from "?" to real. That's a local transition,
+    // not stored state — nobody needs to remember having already seen it.
+    var previousStage by remember { mutableStateOf(phase.stage) }
+    var celebrating by remember { mutableStateOf(false) }
+    LaunchedEffect(phase.stage) {
+        if (previousStage == PartnerWaitStage.NoPartner && phase.stage == PartnerWaitStage.PartnerRating) {
+            celebrating = true
+            delay(2400)
+            celebrating = false
+        }
+        previousStage = phase.stage
+    }
+
+    val (title, body) = when {
+        celebrating -> "THEY'RE HERE!" to
+            "${phase.partnerName ?: "Your partner"} just joined with your code. They're " +
+                "rating their first ten films now — tonight's pick is close."
+
+        phase.stage == PartnerWaitStage.NoPartner -> "WAITING ON THEM" to
             "Your ratings are saved. As soon as your partner enters the code and rates " +
                 "their own ten films, tonight's pick starts arriving."
 
-        PartnerWaitStage.PartnerRating -> "THEY'RE RATING" to
+        else -> "THEY'RE RATING" to
             "Your partner is working through their ten films. We'll notify you both the " +
                 "moment the first match is ready."
     }
 
+    if (celebrating) {
+        Text("JUST JOINED", style = MovieMateType.overline, color = colors.textReward)
+    }
     Text(title, style = MovieMateType.megaHeadline, color = colors.textPrimary)
     Text(body, style = MovieMateType.body, color = colors.textSecondary)
 
@@ -182,6 +209,8 @@ private fun WaitingForPartnerPhase(phase: MatchPhase.WaitingForPartner, onShareA
             avatarUrl = phase.partnerAvatarUrl,
             ringColor = if (phase.isUserA) colors.partnerB else colors.partnerA,
             placeholderLabel = "Your partner",
+            pulsing = phase.stage == PartnerWaitStage.NoPartner && !celebrating,
+            celebrating = celebrating,
         )
     }
 
@@ -214,12 +243,21 @@ private fun WaitingPerson(
     avatarUrl: String?,
     ringColor: Color,
     placeholderLabel: String? = null,
+    pulsing: Boolean = false,
+    celebrating: Boolean = false,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Space.inlineTight),
     ) {
-        Avatar(name = name, avatarUrl = avatarUrl, ringColor = ringColor, size = 64.dp)
+        Avatar(
+            name = name,
+            avatarUrl = avatarUrl,
+            ringColor = ringColor,
+            size = 64.dp,
+            pulsing = pulsing,
+            celebrating = celebrating,
+        )
         Text(
             text = name ?: placeholderLabel ?: "",
             style = MovieMateType.meta,

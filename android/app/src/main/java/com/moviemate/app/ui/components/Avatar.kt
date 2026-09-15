@@ -21,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -89,23 +88,16 @@ fun Avatar(
 @Composable
 private fun PulseRing(size: Dp, ringColor: Color) {
     val transition = rememberInfiniteTransition(label = "avatarPulse")
-    val scale by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.4f,
+    val fraction by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing)),
-        label = "pulseScale",
-    )
-    val alpha by transition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing)),
-        label = "pulseAlpha",
+        label = "pulseFraction",
     )
     Box(
         Modifier
-            .size(size)
-            .graphicsLayer(scaleX = scale, scaleY = scale, alpha = alpha)
-            .border(BorderStroke(2.dp, ringColor), CircleShape),
+            .size(size * (1f + 0.4f * fraction))
+            .border(BorderStroke(2.dp, ringColor.copy(alpha = 0.4f * (1f - fraction))), CircleShape),
     )
 }
 
@@ -119,8 +111,7 @@ private fun JoinGlow(size: Dp, glowColor: Color) {
     }
     Box(
         Modifier
-            .size(size)
-            .graphicsLayer(scaleX = scale.value, scaleY = scale.value, alpha = alpha.value)
-            .background(glowColor, CircleShape),
+            .size(size * scale.value)
+            .background(glowColor.copy(alpha = alpha.value), CircleShape),
     )
 }

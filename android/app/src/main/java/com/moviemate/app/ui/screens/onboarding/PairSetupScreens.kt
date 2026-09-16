@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.moviemate.app.di.LocalAppGraph
+import com.moviemate.app.ui.components.LinkCta
 import com.moviemate.app.ui.components.PrimaryCta
 import com.moviemate.app.ui.components.SecondaryCta
 import com.moviemate.app.ui.core.ActionState
@@ -89,8 +90,9 @@ fun InvitePartnerScreen(
 
                 // Sharing is the one thing this screen exists for — reading the
                 // code aloud works too, but the button that does it still gets
-                // the strong weight. Moving on is just leaving the screen, so it
-                // stays quiet, the same as "I have a code instead" below.
+                // the strong weight. Moving on is just leaving the screen, so
+                // it stays quiet — one step down from "I have a code instead"
+                // below, which isn't a decision at all, just the other door.
                 PrimaryCta(
                     label = "Share the code",
                     onClick = { context.shareInviteCode(invite.inviteCode) },
@@ -103,7 +105,7 @@ fun InvitePartnerScreen(
             }
         }
 
-        SecondaryCta(label = "I have a code instead", onClick = onJoinInstead)
+        LinkCta(label = "I have a code instead", onClick = onJoinInstead)
     }
 }
 
@@ -191,6 +193,6 @@ fun JoinPartnerScreen(
             onClick = { viewModel.join(code) },
             enabled = code.isNotBlank() && !action.isRunning,
         )
-        SecondaryCta(label = "I want to invite instead", onClick = onInviteInstead)
+        LinkCta(label = "I want to invite instead", onClick = onInviteInstead)
     }
 }

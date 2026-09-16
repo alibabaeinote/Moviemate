@@ -131,3 +131,41 @@ fun SecondaryCta(
         )
     }
 }
+
+/**
+ * A same-weight alternative path, not a decision — no container at all. The
+ * coloured label is the whole affordance, like a link.
+ *
+ * Reserved for "instead" navigation ("I have a code instead", "I want to
+ * invite instead") — two ways into the same flow, neither more committed
+ * than the other. An action with a real consequence stays [SecondaryCta]:
+ * without a container it reads as a stray line of text, not something that
+ * was worth a deliberate tap.
+ */
+@Composable
+fun LinkCta(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val colors = MovieMateTheme.colors
+    val interactionSource = remember { MutableInteractionSource() }
+    val scale by rememberPressScale(interactionSource)
+    val contentAlpha = if (enabled) 1f else Opacity.disabled
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .pressable(interactionSource = interactionSource, enabled = enabled, onClick = onClick)
+            .padding(vertical = 15.dp, horizontal = Space.screenGutter),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MovieMateType.cta,
+            color = colors.textAccent.copy(alpha = contentAlpha),
+        )
+    }
+}

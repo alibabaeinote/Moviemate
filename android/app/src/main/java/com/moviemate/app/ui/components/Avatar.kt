@@ -23,11 +23,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.moviemate.app.ui.theme.MovieMateTheme
-import com.moviemate.app.ui.theme.MovieMateType
+import com.moviemate.app.ui.theme.SpaceGrotesk
 import kotlinx.coroutines.launch
 
 /**
@@ -89,7 +92,7 @@ fun Avatar(
             ) {
                 Text(
                     text = name?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                    style = MovieMateType.statCaption,
+                    style = initialStyle(size),
                     color = ringColor.legibleForeground(),
                 )
             }
@@ -105,6 +108,21 @@ fun Avatar(
  */
 private fun Color.legibleForeground(): Color =
     if (luminance() > 0.5f) Color.Black else Color.White
+
+/**
+ * Scaled from this call site's own [size], not a fixed [MovieMateType] role —
+ * unlike a screen's type scale, Avatar renders at three different sizes
+ * (44dp default, 64dp in the waiting screen, 96dp in profile edit), and a
+ * single fixed glyph size reads as oversized at the small end and lost at
+ * the large end.
+ */
+private fun initialStyle(size: Dp) = TextStyle(
+    fontFamily = SpaceGrotesk,
+    fontWeight = FontWeight.Bold,
+    fontSize = (size.value * INITIAL_SIZE_RATIO).sp,
+)
+
+private const val INITIAL_SIZE_RATIO = 0.4f
 
 @Composable
 private fun PulseRing(size: Dp, ringColor: Color) {

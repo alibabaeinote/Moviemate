@@ -324,7 +324,7 @@ private fun CompatibilityRow(percent: Int?, modifier: Modifier = Modifier) {
             color = colors.textPrimary,
         )
         if (percent != null) {
-            Text("$percent%", style = MovieMateType.statNumber, color = colors.textAccent)
+            Text("$percent%", style = MovieMateType.statTileNumber, color = colors.textAccent)
         }
     }
 }

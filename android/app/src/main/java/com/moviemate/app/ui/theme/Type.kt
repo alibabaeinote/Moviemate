@@ -118,9 +118,11 @@ object MovieMateType {
     )
 
     /**
-     * A stat number sharing a card with two siblings ("Matches" / "Watched" /
-     * "Streak"). [statNumber] at 44sp is sized for a lone hero number; the
-     * same size three-up is how a digit crowds its own tile.
+     * A stat number that shares horizontal space with something else — the
+     * three-up "Matches" / "Watched" / "Streak" tiles, or a compatibility
+     * percentage sitting next to a sentence in the same row. [statNumber] at
+     * 44sp is sized for a lone hero number with nothing beside it; the same
+     * size next to a sibling is how a digit crowds its row.
      */
     val statTileNumber = TextStyle(
         fontFamily = SpaceGrotesk,

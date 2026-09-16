@@ -1,6 +1,6 @@
 # MovieMate — Design System
 
-**Version**: 10.1.1
+**Version**: 10.1.2
 **Status**: 🟢 Active — extensible by design (v8 was marked "locked", which is why it drifted)
 **Source of truth**: [`design/tokens.json`](../design/tokens.json)
 **Validator**: `node design/validate-tokens.mjs`
@@ -587,6 +587,22 @@ SVG خطی، گرید ۲۴×۲۴، stroke ۱.۷۵–۲dp، `round` برای cap 
 ---
 
 ## ۱۶. تاریخچه‌ی نسخه‌ها
+
+### v10.1.2 — ۲۰۲۶/۰۹/۱۶
+
+بدون تغییر در `tokens.json` — این نسخه یک اصلاح واقعی را از پروتوتایپ به کد
+Kotlin واقعی می‌آورد، بعد از این‌که کاربر روی سه کارت آماری Us کامنت گذاشت که
+ارتفاعشان برابر نیست.
+
+**اصلاحات**
+- سه کارت آماری Us (`Stat`) حالا داخل یک `Row` با `Modifier.height(IntrinsicSize.Max)`
+  قرار دارند و هرکدام `fillMaxHeight()` می‌گیرند — بدون این، هر کارت به اندازه‌ی
+  محتوای خودش قد می‌کشید، و چون متن زیرنویس‌ها طول متفاوتی دارند («confirmed»
+  در برابر «watches in a row»)، کارت‌ها دقیقاً همان مشکلی را داشتند که ردیف‌های
+  fallback در Match قبلاً با همین الگو حل کرده بودند.
+- زیرنویس‌های کارت کوتاه‌تر شدند: «both confirmed» به «confirmed»، «watches in
+  a row» به «in a row» — در پهنای یک‌سوم صفحه، نسخه‌ی قبلی حتی با ارتفاع برابر
+  هم به دو خط می‌شکست.
 
 ### v10.1.1 — ۲۰۲۶/۰۹/۱۶
 

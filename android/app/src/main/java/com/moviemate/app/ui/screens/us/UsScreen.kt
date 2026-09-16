@@ -5,8 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -92,24 +94,27 @@ fun UsScreen(onSignedOut: () -> Unit, onEditProfile: () -> Unit) {
                     }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(Space.stack)) {
+                Row(
+                    modifier = Modifier.height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(Space.stack),
+                ) {
                     Stat(
                         value = stats.matches.toString(),
                         caption = "Matches",
-                        note = "both confirmed",
-                        modifier = Modifier.weight(1f),
+                        note = "confirmed",
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                     Stat(
                         value = stats.watched.toString(),
                         caption = "Watched",
                         note = "together",
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                     Stat(
                         value = stats.streak.toString(),
                         caption = "Streak",
-                        note = "watches in a row",
-                        modifier = Modifier.weight(1f),
+                        note = "in a row",
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
 
@@ -235,7 +240,7 @@ private fun Stat(
     ) {
         Text(value, style = MovieMateType.statTileNumber, color = colors.textAccent)
         Text(caption, style = MovieMateType.statTileCaption, color = colors.textPrimary)
-        // "Matches" without "both confirmed" invites the reading that it counts
+        // "Matches" without "confirmed" invites the reading that it counts
         // suggestions, which would make the number meaningless (PRD §9).
         Text(note, style = MovieMateType.meta, color = colors.textSecondary)
     }

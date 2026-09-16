@@ -55,12 +55,16 @@ fun FilmPoster(
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
+            // The fallback text has to scale with the poster itself — filmTitle
+            // fits a full-width hero poster, but the same 34sp wrapped inside a
+            // 64dp list-row thumbnail is how a title overruns its own card.
+            val isThumb = cornerRadius == Radius.chip
             Text(
                 text = title,
-                style = MovieMateType.filmTitle,
+                style = if (isThumb) MovieMateType.listTitle else MovieMateType.filmTitle,
                 color = colors.textSecondary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(Space.stack),
+                modifier = Modifier.padding(if (isThumb) Space.stackTight else Space.stack),
             )
         }
     }

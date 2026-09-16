@@ -23,7 +23,9 @@ import com.moviemate.app.R
  * what forces a second set of styles the moment a second theme exists.
  *
  * Two families, with a hard split:
- *  - Space Grotesk: large headlines, film titles, stat numbers. Nothing else.
+ *  - Space Grotesk: large headlines, film titles, stat numbers, and their
+ *    compact cousin — a title sitting next to a thumbnail or avatar in a
+ *    list row. Nothing else.
  *  - Plus Jakarta Sans: body, meta, tag labels, button text, nav labels, forms.
  *
  * v10 replaced both faces together (was Big Shoulders Display + Inter): once
@@ -82,7 +84,20 @@ object MovieMateType {
         lineHeight = 34.sp,
     )
 
-    /** Stat number, e.g. "98". Pair with `colors.textAccent`. */
+    /**
+     * A title next to a thumbnail or avatar — a Watchlist row, a search
+     * result, a Fallback option, a person's name in the Us header. Not
+     * [statCaption]: that role is a full-width status line, a genuinely
+     * larger context than a 64dp poster thumb or a 44dp avatar.
+     */
+    val listTitle = TextStyle(
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.Bold,
+        fontSize = 16.sp,
+        lineHeight = 20.sp,
+    )
+
+    /** A lone hero number — the invite code, the Taste Dial score. Pair with `colors.textAccent`. */
     val statNumber = TextStyle(
         fontFamily = SpaceGrotesk,
         fontWeight = FontWeight.Bold,
@@ -90,7 +105,11 @@ object MovieMateType {
         lineHeight = 39.6.sp, // 0.9
     )
 
-    /** Stat caption, e.g. "shared taste". */
+    /**
+     * A full-width, single-line status statement below a hero element —
+     * "Set for tonight at 9pm", "They're in. Are you?". Not [listTitle]:
+     * this is the only thing on its line, not sharing a row with a poster.
+     */
     val statCaption = TextStyle(
         fontFamily = SpaceGrotesk,
         fontWeight = FontWeight.Bold,
@@ -98,10 +117,35 @@ object MovieMateType {
         lineHeight = 24.sp,
     )
 
-    /** Body copy. */
+    /**
+     * A stat number sharing a card with two siblings ("Matches" / "Watched" /
+     * "Streak"). [statNumber] at 44sp is sized for a lone hero number; the
+     * same size three-up is how a digit crowds its own tile.
+     */
+    val statTileNumber = TextStyle(
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.Bold,
+        fontSize = 28.sp,
+        lineHeight = 28.sp,
+    )
+
+    /** The label under [statTileNumber], inside the same narrow card. */
+    val statTileCaption = TextStyle(
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.5.sp,
+        lineHeight = 16.2.sp, // 1.2
+    )
+
+    /**
+     * Body copy. Medium, not Normal — Plus Jakarta Sans's regular cut reads
+     * noticeably lighter than Inter's did at the same nominal weight, and at
+     * 14.5sp on a phone that's the difference between body text and a
+     * caption.
+     */
     val body = TextStyle(
         fontFamily = PlusJakartaSans,
-        fontWeight = FontWeight.Normal,
+        fontWeight = FontWeight.Medium,
         fontSize = 14.5.sp,
         lineHeight = 1.55.em,
     )
@@ -156,6 +200,7 @@ internal val MovieMateTypography = Typography(
     displayLarge = MovieMateType.megaHeadline,
     headlineLarge = MovieMateType.filmTitle,
     headlineMedium = MovieMateType.statCaption,
+    titleMedium = MovieMateType.listTitle,
     bodyLarge = MovieMateType.body,
     bodyMedium = MovieMateType.body,
     labelLarge = MovieMateType.cta,

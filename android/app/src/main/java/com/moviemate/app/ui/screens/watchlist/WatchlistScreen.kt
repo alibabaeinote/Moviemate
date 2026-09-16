@@ -153,7 +153,7 @@ private fun WatchlistRowCard(
             ) {
                 Text(
                     text = row.film?.title ?: "Film ${row.item.filmId}",
-                    style = MovieMateType.statCaption,
+                    style = MovieMateType.listTitle,
                     color = colors.textPrimary,
                 )
                 if (session != null) {
@@ -278,7 +278,7 @@ private fun AddFilmSheet(
                             ) {
                                 Text(
                                     text = film.title,
-                                    style = MovieMateType.statCaption,
+                                    style = MovieMateType.listTitle,
                                     color = colors.textPrimary,
                                 )
                                 Text(

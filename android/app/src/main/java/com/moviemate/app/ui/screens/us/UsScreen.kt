@@ -206,7 +206,7 @@ private fun PersonRow(
         Avatar(name = name, avatarUrl = avatarUrl, ringColor = ringColor)
         Text(
             text = name,
-            style = MovieMateType.statCaption,
+            style = MovieMateType.listTitle,
             color = colors.textPrimary,
         )
     }
@@ -227,8 +227,8 @@ private fun Stat(
             .background(colors.surfaceRaised)
             .padding(Space.stackTight),
     ) {
-        Text(value, style = MovieMateType.statNumber, color = colors.textAccent)
-        Text(caption, style = MovieMateType.statCaption, color = colors.textPrimary)
+        Text(value, style = MovieMateType.statTileNumber, color = colors.textAccent)
+        Text(caption, style = MovieMateType.statTileCaption, color = colors.textPrimary)
         // "Matches" without "both confirmed" invites the reading that it counts
         // suggestions, which would make the number meaningless (PRD §9).
         Text(note, style = MovieMateType.meta, color = colors.textSecondary)

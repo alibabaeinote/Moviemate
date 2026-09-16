@@ -1,6 +1,6 @@
 # MovieMate — Design System
 
-**Version**: 10.0.0
+**Version**: 10.1.0
 **Status**: 🟢 Active — extensible by design (v8 was marked "locked", which is why it drifted)
 **Source of truth**: [`design/tokens.json`](../design/tokens.json)
 **Validator**: `node design/validate-tokens.mjs`
@@ -259,6 +259,30 @@ Text(
 
 نقش‌ها با نام صدا زده می‌شوند، نه با اندازه. یک صفحه هرگز `34.sp` نمی‌خواهد؛
 `MovieMateType.filmTitle` می‌خواهد.
+
+### بازبینی سلسله‌مراتب — چهار نقش تازه (v10.1)
+
+`statCaption` برای دو مقصود همزمان استفاده می‌شد: هم یک جمله‌ی وضعیتِ تمام‌عرض
+زیر یک عنصر بزرگ («Set for tonight at 9pm»)، هم عنوان فیلم داخل ردیف‌های فشرده
+(Watchlist، نتیجه‌ی جست‌وجو، گزینه‌های Fallback) — جایی که پوستر فقط ۶۴dp عرض
+دارد. مقصود دوم داخل یک thumb کوچک **overflow** می‌کرد.
+
+| نقش | اندازه | برای چی |
+|---|---|---|
+| `listTitle` | 16sp | عنوان کنار یک thumb یا آواتار — ردیف Watchlist، نتیجه‌ی جست‌وجو، گزینه‌ی Fallback، اسم کنار آواتار در Us |
+| `statCaption` | 24sp (بدون تغییر) | فقط جمله‌ی وضعیت تمام‌عرض — چیز دیگری روی همان خط نیست |
+| `statTileNumber` | 28sp | عدد آماری وقتی با دو همسایه یک ردیف کارت را شریک است (Matches/Watched/Streak) — نه عدد قهرمانِ تنها |
+| `statTileCaption` | 13.5sp | برچسب زیر `statTileNumber`، همان کارت |
+
+`FilmPoster` هم همین باگ را داشت: متن جایگزینِ بدون پوستر همیشه `filmTitle`
+(۳۴sp) بود، چه پوستر کل عرض صفحه باشد چه یک thumb. حالا بر اساس `cornerRadius`
+(`Radius.chip` ↔ thumb) بین `filmTitle` و `listTitle` انتخاب می‌کند.
+
+### وزن بدنه (v10.1)
+
+`body` از `regular` به `medium` رفت. Plus Jakarta Sans در وزن regular خودش
+نسبت به Inter محسوس‌تر باریک دیده می‌شود — چیزی که در ۱۴.۵px روی موبایل فرق
+بین متن بدنه و یک caption را می‌سازد.
 
 ---
 
@@ -550,6 +574,37 @@ SVG خطی، گرید ۲۴×۲۴، stroke ۱.۷۵–۲dp، `round` برای cap 
 ---
 
 ## ۱۶. تاریخچه‌ی نسخه‌ها
+
+### v10.1.0 — ۲۰۲۶/۰۹/۱۶
+
+**اصلاحات**
+- `statCaption` (۲۴sp) دو نقش ناهم‌جنس را همزمان بازی می‌کرد: هم یک خط
+  وضعیت تمام‌عرض زیر یک عنصر hero (درست)، هم عنوان یک ردیف فشرده کنار
+  یک thumbnail ۶۴dp (غلط) — همین دومی باعث سرریز و رپ‌شدن عنوان فیلم در
+  ردیف‌های Watchlist می‌شد. نقش تازه‌ی `listTitle` (۱۶sp/Bold) برای این
+  زمینه‌ی فشرده اضافه شد و ۴ محل استفاده (دو ردیف در Watchlist، یک گزینه
+  در Fallback، نام شخص در سربرگ Us) از `statCaption` به آن منتقل شدند —
+  بخش ۵.
+- به همین شکل، `statNumber`/`statCaption` (۴۴sp/۲۴sp، برای یک عدد تنهای
+  hero طراحی شده‌اند) در کارت سه‌تایی «Matches / Watched / Streak» صفحه‌ی
+  Us به‌صورت فشرده کنار هم قرار می‌گرفتند و رقم‌ها کارت خودشان را شلوغ
+  می‌کردند. دو نقش تازه‌ی `statTileNumber` (۲۸sp) و `statTileCaption`
+  (۱۳.۵sp) برای این زمینه‌ی «سه‌تایی روی یک کارت» اضافه شدند.
+- ریشه‌ی واقعی عنوان‌های بیش‌ازحد بزرگ روی پوستر جایگزین در Watchlist:
+  `FilmPoster` برای متن جایگزین (وقتی پوستری نیست) همیشه از `filmTitle`
+  (۳۴sp) استفاده می‌کرد، صرف‌نظر از اینکه پوستر در اندازه‌ی hero رندر
+  می‌شود یا به‌عنوان thumbnail ۶۴dp یک ردیف. حالا این انتخاب از روی
+  `cornerRadius` موجود کامپوننت مشتق می‌شود (thumbnail → `listTitle`،
+  در غیر این صورت → `filmTitle`) — بدون نیاز به تغییر در نقاط فراخوانی.
+- وزن `body` از regular به **medium** رفت: برش regular در Plus Jakarta
+  Sans به‌محسوسی سبک‌تر از همان وزن در Inter دیده می‌شود، و در ۱۴.۵sp
+  روی موبایل این تفاوت بین متن بدنه و یک caption است.
+
+**افزوده‌ها**
+- نقش‌های تایپ تازه: `listTitle`، `statTileNumber`، `statTileCaption` —
+  بخش ۵.
+- پرایمیتیوهای اندازه‌ی تازه: `ref.font.size.65` (۱۶px)، `ref.font.size.75`
+  (۲۸px) — با شماره‌ی فاصله‌دار، طبق قاعده‌ی خود سند.
 
 ### v10.0.0 — ۲۰۲۶/۰۹/۱۵
 

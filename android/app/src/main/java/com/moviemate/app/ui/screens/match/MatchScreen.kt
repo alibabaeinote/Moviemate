@@ -419,7 +419,7 @@ private fun FallbackPhase(
             ) {
                 Text(
                     text = film?.title ?: "Film ${option.filmId}",
-                    style = MovieMateType.statCaption,
+                    style = MovieMateType.listTitle,
                     color = colors.textPrimary,
                 )
                 Text(

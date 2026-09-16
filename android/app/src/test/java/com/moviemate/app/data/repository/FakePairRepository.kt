@@ -10,6 +10,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 /** One `commitToWatchlistItem` call, recorded for assertions. */
 data class CommitWatchlistCall(val pairId: String, val itemId: String, val isUserA: Boolean)
 
+/** One `commitToMatch` call, recorded for assertions. */
+data class CommitMatchCall(val pairId: String, val matchId: String, val isUserA: Boolean)
+
+/** One `scheduleWatch` call, recorded for assertions. */
+data class ScheduleWatchCall(val pairId: String, val matchId: String, val scheduledForMillis: Long)
+
+/** One `confirmWatched` call, recorded for assertions. */
+data class ConfirmWatchedCall(val pairId: String, val matchId: String, val uid: String)
+
+/** One `chooseFallbackFilm` call, recorded for assertions. */
+data class ChooseFallbackCall(val pairId: String, val matchId: String, val filmId: String)
+
 /**
  * An in-memory [PairRepository] for ViewModel tests — no Firestore, no
  * Cloud Functions. `pairTotalsResult`/`statsInputsResult`/etc. are read
@@ -20,6 +32,7 @@ class FakePairRepository : PairRepository {
     private val userFlows = mutableMapOf<String, MutableStateFlow<User?>>()
     private val pairFlows = mutableMapOf<String, MutableStateFlow<Pair?>>()
     private val watchlistFlows = mutableMapOf<String, MutableStateFlow<List<WatchlistItem>>>()
+    private val matchFlows = mutableMapOf<String, MutableStateFlow<Match?>>()
 
     var pairTotalsResult = PairTotals()
     var statsInputsResult = PairStatsInputs()
@@ -30,6 +43,11 @@ class FakePairRepository : PairRepository {
     val committedWatchlistItems = mutableListOf<CommitWatchlistCall>()
     val deletedWatchlistItems = mutableListOf<String>()
     val addedFilmIds = mutableListOf<String>()
+    val committedMatches = mutableListOf<CommitMatchCall>()
+    val rejectedMatches = mutableListOf<String>()
+    val chosenFallbacks = mutableListOf<ChooseFallbackCall>()
+    val scheduledWatches = mutableListOf<ScheduleWatchCall>()
+    val confirmedWatched = mutableListOf<ConfirmWatchedCall>()
 
     fun setUser(uid: String, user: User?) {
         userFlows.getOrPut(uid) { MutableStateFlow(null) }.value = user
@@ -41,6 +59,10 @@ class FakePairRepository : PairRepository {
 
     fun setWatchlist(pairId: String, items: List<WatchlistItem>) {
         watchlistFlows.getOrPut(pairId) { MutableStateFlow(emptyList()) }.value = items
+    }
+
+    fun setMatch(pairId: String, match: Match?) {
+        matchFlows.getOrPut(pairId) { MutableStateFlow(null) }.value = match
     }
 
     override suspend fun createPair(): Result<InviteInfo> =
@@ -61,7 +83,8 @@ class FakePairRepository : PairRepository {
     override fun observePair(pairId: String): Flow<Pair?> =
         pairFlows.getOrPut(pairId) { MutableStateFlow(null) }
 
-    override fun observeCurrentMatch(pairId: String): Flow<Match?> = MutableStateFlow(null)
+    override fun observeCurrentMatch(pairId: String): Flow<Match?> =
+        matchFlows.getOrPut(pairId) { MutableStateFlow(null) }
 
     override fun observeWatchlist(pairId: String): Flow<List<WatchlistItem>> =
         watchlistFlows.getOrPut(pairId) { MutableStateFlow(emptyList()) }
@@ -87,19 +110,30 @@ class FakePairRepository : PairRepository {
         reactionEmoji: String?,
     ): Result<Unit> = Result.success(Unit)
 
-    override suspend fun commitToMatch(pairId: String, matchId: String, isUserA: Boolean): Result<Unit> =
-        Result.success(Unit)
+    override suspend fun commitToMatch(pairId: String, matchId: String, isUserA: Boolean): Result<Unit> {
+        committedMatches.add(CommitMatchCall(pairId, matchId, isUserA))
+        return Result.success(Unit)
+    }
 
-    override suspend fun confirmWatched(pairId: String, matchId: String, uid: String): Result<Unit> =
-        Result.success(Unit)
+    override suspend fun confirmWatched(pairId: String, matchId: String, uid: String): Result<Unit> {
+        confirmedWatched.add(ConfirmWatchedCall(pairId, matchId, uid))
+        return Result.success(Unit)
+    }
 
-    override suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> {
+        rejectedMatches.add(matchId)
+        return Result.success(Unit)
+    }
 
-    override suspend fun chooseFallbackFilm(pairId: String, matchId: String, filmId: String): Result<Unit> =
-        Result.success(Unit)
+    override suspend fun chooseFallbackFilm(pairId: String, matchId: String, filmId: String): Result<Unit> {
+        chosenFallbacks.add(ChooseFallbackCall(pairId, matchId, filmId))
+        return Result.success(Unit)
+    }
 
-    override suspend fun scheduleWatch(pairId: String, matchId: String, scheduledForMillis: Long): Result<Unit> =
-        Result.success(Unit)
+    override suspend fun scheduleWatch(pairId: String, matchId: String, scheduledForMillis: Long): Result<Unit> {
+        scheduledWatches.add(ScheduleWatchCall(pairId, matchId, scheduledForMillis))
+        return Result.success(Unit)
+    }
 
     override suspend fun addToWatchlist(
         pairId: String,

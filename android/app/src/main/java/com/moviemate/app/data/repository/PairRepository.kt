@@ -299,7 +299,7 @@ class FirebasePairRepository(
         filmId: String,
         score: Double,
         isInitialOnboarding: Boolean,
-        reactionEmoji: String? = null,
+        reactionEmoji: String?,
     ): Result<Unit> = runCatching {
         require(score in 0.0..100.0) { "Taste Dial score must be 0-100" }
         val rating = Rating(

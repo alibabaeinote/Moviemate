@@ -4,7 +4,11 @@ import android.content.Context
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.moviemate.app.data.repository.AuthRepository
 import com.moviemate.app.data.repository.FilmRepository
+import com.moviemate.app.data.repository.FirebaseAuthRepository
+import com.moviemate.app.data.repository.FirebaseFilmRepository
+import com.moviemate.app.data.repository.FirebasePairRepository
 import com.moviemate.app.data.repository.PairRepository
+import com.moviemate.app.data.session.FirebaseSessionStore
 import com.moviemate.app.data.session.OnboardingDraftStore
 import com.moviemate.app.data.session.SessionStore
 
@@ -29,10 +33,10 @@ interface AppGraph {
 }
 
 class DefaultAppGraph(context: Context) : AppGraph {
-    override val authRepository = AuthRepository()
-    override val pairRepository = PairRepository()
-    override val filmRepository = FilmRepository()
-    override val sessionStore = SessionStore(authRepository, pairRepository)
+    override val authRepository: AuthRepository = FirebaseAuthRepository()
+    override val pairRepository: PairRepository = FirebasePairRepository()
+    override val filmRepository: FilmRepository = FirebaseFilmRepository()
+    override val sessionStore: SessionStore = FirebaseSessionStore(authRepository, pairRepository)
     override val onboardingDraftStore = OnboardingDraftStore(context.applicationContext)
 }
 

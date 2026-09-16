@@ -1,0 +1,122 @@
+package com.moviemate.app.data.repository
+
+import com.moviemate.app.data.model.Match
+import com.moviemate.app.data.model.Pair
+import com.moviemate.app.data.model.User
+import com.moviemate.app.data.model.WatchlistItem
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+
+/** One `commitToWatchlistItem` call, recorded for assertions. */
+data class CommitWatchlistCall(val pairId: String, val itemId: String, val isUserA: Boolean)
+
+/**
+ * An in-memory [PairRepository] for ViewModel tests — no Firestore, no
+ * Cloud Functions. `pairTotalsResult`/`statsInputsResult`/etc. are read
+ * directly by the fake; the `observe*` flows are backed by per-id
+ * [MutableStateFlow]s a test can push new values into.
+ */
+class FakePairRepository : PairRepository {
+    private val userFlows = mutableMapOf<String, MutableStateFlow<User?>>()
+    private val pairFlows = mutableMapOf<String, MutableStateFlow<Pair?>>()
+    private val watchlistFlows = mutableMapOf<String, MutableStateFlow<List<WatchlistItem>>>()
+
+    var pairTotalsResult = PairTotals()
+    var statsInputsResult = PairStatsInputs()
+    var ratingsForFilmResult: Map<String, Double> = emptyMap()
+    var searchFilmsResult: Result<List<DeckFilm>> = Result.success(emptyList())
+    var addToWatchlistResult: Result<String> = Result.success("new-item-id")
+
+    val committedWatchlistItems = mutableListOf<CommitWatchlistCall>()
+    val deletedWatchlistItems = mutableListOf<String>()
+    val addedFilmIds = mutableListOf<String>()
+
+    fun setUser(uid: String, user: User?) {
+        userFlows.getOrPut(uid) { MutableStateFlow(null) }.value = user
+    }
+
+    fun setPair(pairId: String, pair: Pair?) {
+        pairFlows.getOrPut(pairId) { MutableStateFlow(null) }.value = pair
+    }
+
+    fun setWatchlist(pairId: String, items: List<WatchlistItem>) {
+        watchlistFlows.getOrPut(pairId) { MutableStateFlow(emptyList()) }.value = items
+    }
+
+    override suspend fun createPair(): Result<InviteInfo> =
+        Result.success(InviteInfo(pairId = "p1", inviteCode = "ABC123", expiresAtMillis = 0L))
+
+    override suspend fun joinPair(inviteCode: String): Result<String> = Result.success("p1")
+
+    override suspend fun listGenres(): Result<List<TmdbGenre>> = Result.success(emptyList())
+
+    override suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>> =
+        Result.success(emptyList())
+
+    override suspend fun searchFilms(query: String): Result<List<DeckFilm>> = searchFilmsResult
+
+    override fun observeUser(uid: String): Flow<User?> =
+        userFlows.getOrPut(uid) { MutableStateFlow(null) }
+
+    override fun observePair(pairId: String): Flow<Pair?> =
+        pairFlows.getOrPut(pairId) { MutableStateFlow(null) }
+
+    override fun observeCurrentMatch(pairId: String): Flow<Match?> = MutableStateFlow(null)
+
+    override fun observeWatchlist(pairId: String): Flow<List<WatchlistItem>> =
+        watchlistFlows.getOrPut(pairId) { MutableStateFlow(emptyList()) }
+
+    override suspend fun ratingsForFilm(pairId: String, filmId: String): Map<String, Double> =
+        ratingsForFilmResult
+
+    override suspend fun pairTotals(pairId: String): PairTotals = pairTotalsResult
+
+    override suspend fun statsInputs(pairId: String): PairStatsInputs = statsInputsResult
+
+    override suspend fun deleteWatchlistItem(pairId: String, itemId: String): Result<Unit> {
+        deletedWatchlistItems.add(itemId)
+        return Result.success(Unit)
+    }
+
+    override suspend fun submitRating(
+        pairId: String,
+        uid: String,
+        filmId: String,
+        score: Double,
+        isInitialOnboarding: Boolean,
+        reactionEmoji: String?,
+    ): Result<Unit> = Result.success(Unit)
+
+    override suspend fun commitToMatch(pairId: String, matchId: String, isUserA: Boolean): Result<Unit> =
+        Result.success(Unit)
+
+    override suspend fun confirmWatched(pairId: String, matchId: String, uid: String): Result<Unit> =
+        Result.success(Unit)
+
+    override suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun chooseFallbackFilm(pairId: String, matchId: String, filmId: String): Result<Unit> =
+        Result.success(Unit)
+
+    override suspend fun scheduleWatch(pairId: String, matchId: String, scheduledForMillis: Long): Result<Unit> =
+        Result.success(Unit)
+
+    override suspend fun addToWatchlist(
+        pairId: String,
+        uid: String,
+        filmId: String,
+        isUserA: Boolean,
+    ): Result<String> {
+        addedFilmIds.add(filmId)
+        return addToWatchlistResult
+    }
+
+    override suspend fun commitToWatchlistItem(
+        pairId: String,
+        itemId: String,
+        isUserA: Boolean,
+    ): Result<Unit> {
+        committedWatchlistItems.add(CommitWatchlistCall(pairId, itemId, isUserA))
+        return Result.success(Unit)
+    }
+}

@@ -19,16 +19,61 @@ import java.util.TimeZone
  *
  * v1 shipped Email/Password (Backend Schema §1); this replaced it rather than
  * adding to it, so there is exactly one account-recovery story instead of two.
+ *
+ * An interface, not just a class, so ViewModel tests can substitute a fake
+ * instead of talking to Firebase — see `data.repository.FakeAuthRepository`
+ * in the test source set.
  */
-class AuthRepository(
+interface AuthRepository {
+    val currentUser: FirebaseUser?
+
+    /** Emits on every sign-in/sign-out so the app keeps the user logged in across launches. */
+    fun authState(): Flow<FirebaseUser?>
+
+    /**
+     * Exchange a Google ID token (from Credential Manager — see
+     * ui/screens/auth/GoogleSignIn.kt) for a Firebase session, seeding
+     * users/{uid} on the account's first sign-in only.
+     */
+    suspend fun signInWithGoogle(idToken: String): Result<FirebaseUser>
+
+    /**
+     * Name and avatar together, so a profile save is one write rather than two
+     * — two writes would mean onUserProfileUpdated (which denormalizes both
+     * onto the pair document) fires and notifies twice for one edit.
+     */
+    suspend fun updateProfile(uid: String, name: String, avatarUrl: String?): Result<Unit>
+
+    /**
+     * Notification preferences.
+     *
+     * One of the fields the security rules let a user write on their own
+     * document — everything else there is owned by Cloud Functions.
+     */
+    suspend fun updateNotificationSettings(uid: String, settings: NotificationSettings): Result<Unit>
+
+    /**
+     * Upload the picked image and return its download URL.
+     *
+     * One fixed object per user (`avatars/{uid}/profile.jpg`) rather than a
+     * new file per upload: storage.rules grants write only to that exact path,
+     * and a re-upload overwriting it is what keeps an old avatar from lingering
+     * in the bucket once nothing points at it any more.
+     */
+    suspend fun uploadAvatar(uid: String, bytes: ByteArray): Result<String>
+
+    fun signOut()
+}
+
+/** The real, Firebase-backed [AuthRepository]. */
+class FirebaseAuthRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val storage: FirebaseStorage = FirebaseStorage.getInstance(),
-) {
-    val currentUser: FirebaseUser? get() = auth.currentUser
+) : AuthRepository {
+    override val currentUser: FirebaseUser? get() = auth.currentUser
 
-    /** Emits on every sign-in/sign-out so the app keeps the user logged in across launches. */
-    fun authState(): Flow<FirebaseUser?> = callbackFlow {
+    override fun authState(): Flow<FirebaseUser?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { trySend(it.currentUser) }
         auth.addAuthStateListener(listener)
         awaitClose { auth.removeAuthStateListener(listener) }
@@ -44,7 +89,7 @@ class AuthRepository(
      * whether the Firestore document already exists would be a second round
      * trip to answer a question Firebase already answered.
      */
-    suspend fun signInWithGoogle(idToken: String): Result<FirebaseUser> = runCatching {
+    override suspend fun signInWithGoogle(idToken: String): Result<FirebaseUser> = runCatching {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         val result = auth.signInWithCredential(credential).await()
         val user = requireNotNull(result.user) { "Google sign-in returned no user" }
@@ -75,7 +120,7 @@ class AuthRepository(
      * — two writes would mean onUserProfileUpdated (which denormalizes both
      * onto the pair document) fires and notifies twice for one edit.
      */
-    suspend fun updateProfile(uid: String, name: String, avatarUrl: String?): Result<Unit> =
+    override suspend fun updateProfile(uid: String, name: String, avatarUrl: String?): Result<Unit> =
         runCatching {
             firestore.collection("users").document(uid)
                 .update(mapOf("name" to name.trim(), "avatarUrl" to avatarUrl))
@@ -88,7 +133,7 @@ class AuthRepository(
      * One of the fields the security rules let a user write on their own
      * document — everything else there is owned by Cloud Functions.
      */
-    suspend fun updateNotificationSettings(
+    override suspend fun updateNotificationSettings(
         uid: String,
         settings: NotificationSettings,
     ): Result<Unit> = runCatching {
@@ -105,11 +150,11 @@ class AuthRepository(
      * and a re-upload overwriting it is what keeps an old avatar from lingering
      * in the bucket once nothing points at it any more.
      */
-    suspend fun uploadAvatar(uid: String, bytes: ByteArray): Result<String> = runCatching {
+    override suspend fun uploadAvatar(uid: String, bytes: ByteArray): Result<String> = runCatching {
         val ref = storage.reference.child("avatars/$uid/profile.jpg")
         ref.putBytes(bytes).await()
         ref.downloadUrl.await().toString()
     }
 
-    fun signOut() = auth.signOut()
+    override fun signOut() = auth.signOut()
 }

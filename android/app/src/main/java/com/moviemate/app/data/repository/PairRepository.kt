@@ -23,19 +23,61 @@ import java.util.TimeZone
  * Anything that has to be consistent across both users — creating or joining a
  * pair, rejecting a match, scheduling a watch — goes through a callable rather
  * than a direct write, because the security rules close those paths on purpose.
+ *
+ * An interface, not just a class, so ViewModel tests can substitute a fake
+ * instead of talking to Firestore — see `data.repository.FakePairRepository`
+ * in the test source set.
  */
-class PairRepository(
+interface PairRepository {
+    // ---------- Pairing ----------
+    suspend fun createPair(): Result<InviteInfo>
+    suspend fun joinPair(inviteCode: String): Result<String>
+
+    // ---------- Onboarding content ----------
+    suspend fun listGenres(): Result<List<TmdbGenre>>
+    suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>>
+    suspend fun searchFilms(query: String): Result<List<DeckFilm>>
+
+    // ---------- Live reads ----------
+    fun observeUser(uid: String): Flow<User?>
+    fun observePair(pairId: String): Flow<Pair?>
+    fun observeCurrentMatch(pairId: String): Flow<Match?>
+    fun observeWatchlist(pairId: String): Flow<List<WatchlistItem>>
+    suspend fun ratingsForFilm(pairId: String, filmId: String): Map<String, Double>
+    suspend fun pairTotals(pairId: String): PairTotals
+    suspend fun statsInputs(pairId: String): PairStatsInputs
+    suspend fun deleteWatchlistItem(pairId: String, itemId: String): Result<Unit>
+
+    // ---------- Writes the rules allow directly ----------
+    suspend fun submitRating(
+        pairId: String,
+        uid: String,
+        filmId: String,
+        score: Double,
+        isInitialOnboarding: Boolean,
+        reactionEmoji: String? = null,
+    ): Result<Unit>
+
+    suspend fun commitToMatch(pairId: String, matchId: String, isUserA: Boolean): Result<Unit>
+    suspend fun confirmWatched(pairId: String, matchId: String, uid: String): Result<Unit>
+    suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit>
+    suspend fun chooseFallbackFilm(pairId: String, matchId: String, filmId: String): Result<Unit>
+    suspend fun scheduleWatch(pairId: String, matchId: String, scheduledForMillis: Long): Result<Unit>
+    suspend fun addToWatchlist(pairId: String, uid: String, filmId: String, isUserA: Boolean): Result<String>
+    suspend fun commitToWatchlistItem(pairId: String, itemId: String, isUserA: Boolean): Result<Unit>
+}
+
+/** The real, Firestore/Cloud-Functions-backed [PairRepository]. */
+class FirebasePairRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance("europe-west1"),
-) {
+) : PairRepository {
     private fun pairDoc(pairId: String) = firestore.collection("pairs").document(pairId)
 
     /** Lower bound for "this timestamp is set". See pairTotals. */
     private val EPOCH = Timestamp(0, 0)
 
-    // ---------- Pairing ----------
-
-    suspend fun createPair(): Result<InviteInfo> = runCatching {
+    override suspend fun createPair(): Result<InviteInfo> = runCatching {
         val response = functions
             .getHttpsCallable("createPair")
             .call(mapOf("timezone" to TimeZone.getDefault().id))
@@ -53,7 +95,7 @@ class PairRepository(
         )
     }
 
-    suspend fun joinPair(inviteCode: String): Result<String> = runCatching {
+    override suspend fun joinPair(inviteCode: String): Result<String> = runCatching {
         val response = functions
             .getHttpsCallable("joinPair")
             .call(mapOf("inviteCode" to inviteCode, "timezone" to TimeZone.getDefault().id))
@@ -67,7 +109,7 @@ class PairRepository(
     // ---------- Onboarding content ----------
 
     /** Stage 1 of onboarding: the genres the user picks from. */
-    suspend fun listGenres(): Result<List<TmdbGenre>> = runCatching {
+    override suspend fun listGenres(): Result<List<TmdbGenre>> = runCatching {
         val response = functions.getHttpsCallable("listGenres").call().await()
 
         @Suppress("UNCHECKED_CAST")
@@ -82,7 +124,7 @@ class PairRepository(
      * popular titles — era and country carry 40% of the scoring weight, and a
      * deck of recent blockbusters teaches the profile neither.
      */
-    suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>> = runCatching {
+    override suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>> = runCatching {
         val response = functions
             .getHttpsCallable("getOnboardingFilms")
             .call(mapOf("genreIds" to genreIds))
@@ -112,7 +154,7 @@ class PairRepository(
      * written into filmCache for anything to resolve it later, and clients
      * cannot write filmCache.
      */
-    suspend fun searchFilms(query: String): Result<List<DeckFilm>> = runCatching {
+    override suspend fun searchFilms(query: String): Result<List<DeckFilm>> = runCatching {
         val response = functions
             .getHttpsCallable("searchFilms")
             .call(mapOf("query" to query))
@@ -137,7 +179,7 @@ class PairRepository(
 
     // ---------- Live reads ----------
 
-    fun observeUser(uid: String): Flow<User?> = callbackFlow {
+    override fun observeUser(uid: String): Flow<User?> = callbackFlow {
         val registration: ListenerRegistration = firestore.collection("users").document(uid)
             .addSnapshotListener { snapshot, _ ->
                 trySend(snapshot?.toObject(User::class.java))
@@ -145,7 +187,7 @@ class PairRepository(
         awaitClose { registration.remove() }
     }
 
-    fun observePair(pairId: String): Flow<Pair?> = callbackFlow {
+    override fun observePair(pairId: String): Flow<Pair?> = callbackFlow {
         val registration = pairDoc(pairId).addSnapshotListener { snapshot, _ ->
             trySend(snapshot?.toObject(Pair::class.java))
         }
@@ -153,7 +195,7 @@ class PairRepository(
     }
 
     /** The current open suggestion, or the most recent one. */
-    fun observeCurrentMatch(pairId: String): Flow<Match?> = callbackFlow {
+    override fun observeCurrentMatch(pairId: String): Flow<Match?> = callbackFlow {
         val registration = pairDoc(pairId).collection("matches")
             .orderBy("suggestedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(1)
@@ -163,7 +205,7 @@ class PairRepository(
         awaitClose { registration.remove() }
     }
 
-    fun observeWatchlist(pairId: String): Flow<List<WatchlistItem>> = callbackFlow {
+    override fun observeWatchlist(pairId: String): Flow<List<WatchlistItem>> = callbackFlow {
         val registration = pairDoc(pairId).collection("watchlist")
             .addSnapshotListener { snapshot, _ ->
                 trySend(snapshot?.toObjects(WatchlistItem::class.java) ?: emptyList())
@@ -178,7 +220,7 @@ class PairRepository(
      * separate numbers (PRD §7.4 item 6), which needs the individual scores —
      * the item's stored mutualScore is already collapsed to one figure.
      */
-    suspend fun ratingsForFilm(pairId: String, filmId: String): Map<String, Double> =
+    override suspend fun ratingsForFilm(pairId: String, filmId: String): Map<String, Double> =
         runCatching {
             pairDoc(pairId).collection("ratings")
                 .whereEqualTo("filmId", filmId)
@@ -204,7 +246,7 @@ class PairRepository(
      * results to the operand's type, so unconfirmed matches — which carry an
      * explicit null — fall outside it.
      */
-    suspend fun pairTotals(pairId: String): PairTotals = runCatching {
+    override suspend fun pairTotals(pairId: String): PairTotals = runCatching {
         val matches = pairDoc(pairId).collection("matches")
         val confirmed = matches
             .whereGreaterThan("bothConfirmedAt", EPOCH)
@@ -224,7 +266,7 @@ class PairRepository(
      * security rules (unlike users/{uid}), so this reads straight from
      * Firestore rather than through a callable, the same way [pairTotals] does.
      */
-    suspend fun statsInputs(pairId: String): PairStatsInputs = runCatching {
+    override suspend fun statsInputs(pairId: String): PairStatsInputs = runCatching {
         val watchlistSnapshot = pairDoc(pairId).collection("watchlist")
             .whereEqualTo("status", "watched")
             .get().await()
@@ -239,7 +281,7 @@ class PairRepository(
     }.getOrDefault(PairStatsInputs())
 
     /** Either member may remove a film from the shared list. */
-    suspend fun deleteWatchlistItem(pairId: String, itemId: String): Result<Unit> = runCatching {
+    override suspend fun deleteWatchlistItem(pairId: String, itemId: String): Result<Unit> = runCatching {
         pairDoc(pairId).collection("watchlist").document(itemId).delete().await()
     }
 
@@ -251,7 +293,7 @@ class PairRepository(
      * Document id is "{uid}_{filmId}" so re-rating the same film updates rather
      * than creating a duplicate — the documented "Duplicate Rating" case.
      */
-    suspend fun submitRating(
+    override suspend fun submitRating(
         pairId: String,
         uid: String,
         filmId: String,
@@ -275,7 +317,7 @@ class PairRepository(
      * "We're in" — flips only the caller's own flag. bothConfirmedAt is stamped
      * server-side once both are true, so neither user can commit for the other.
      */
-    suspend fun commitToMatch(
+    override suspend fun commitToMatch(
         pairId: String,
         matchId: String,
         isUserA: Boolean,
@@ -289,7 +331,7 @@ class PairRepository(
      * service. Both fields are written together: the rules require it, so the
      * server side knows who confirmed and can prompt the OTHER partner to rate.
      */
-    suspend fun confirmWatched(pairId: String, matchId: String, uid: String): Result<Unit> =
+    override suspend fun confirmWatched(pairId: String, matchId: String, uid: String): Result<Unit> =
         runCatching {
             pairDoc(pairId).collection("matches").document(matchId)
                 .update(
@@ -301,7 +343,7 @@ class PairRepository(
                 .await()
         }
 
-    suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> = runCatching {
+    override suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> = runCatching {
         functions.getHttpsCallable("rejectMatch")
             .call(mapOf("pairId" to pairId, "matchId" to matchId))
             .await()
@@ -315,7 +357,7 @@ class PairRepository(
      * clients on purpose — it is shared state, and either partner rewriting it
      * would change the film out from under the other's commitment.
      */
-    suspend fun chooseFallbackFilm(
+    override suspend fun chooseFallbackFilm(
         pairId: String,
         matchId: String,
         filmId: String,
@@ -326,7 +368,7 @@ class PairRepository(
         Unit
     }
 
-    suspend fun scheduleWatch(
+    override suspend fun scheduleWatch(
         pairId: String,
         matchId: String,
         scheduledForMillis: Long,
@@ -352,7 +394,7 @@ class PairRepository(
      * One write instead of two, and no window where the list shows a film
      * nobody appears to want.
      */
-    suspend fun addToWatchlist(
+    override suspend fun addToWatchlist(
         pairId: String,
         uid: String,
         filmId: String,
@@ -378,7 +420,7 @@ class PairRepository(
     }
 
     /** "I'm in too", straight from the list row (PRD §7.4 item 3). */
-    suspend fun commitToWatchlistItem(
+    override suspend fun commitToWatchlistItem(
         pairId: String,
         itemId: String,
         isUserA: Boolean,

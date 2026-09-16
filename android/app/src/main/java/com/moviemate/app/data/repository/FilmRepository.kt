@@ -10,16 +10,26 @@ import kotlinx.coroutines.tasks.await
  * Clients read filmCache and never write it — the rules forbid it, and the
  * 6-month TTL is enforced server-side. A cache miss here means the Cloud
  * Functions have not pulled that film yet.
+ *
+ * An interface, not just a class, so ViewModel tests can substitute a fake
+ * instead of talking to Firestore — see `data.repository.FakeFilmRepository`
+ * in the test source set.
  */
-class FilmRepository(
+interface FilmRepository {
+    suspend fun getFilm(filmId: String): Film?
+    suspend fun getFilms(filmIds: List<String>): Map<String, Film>
+}
+
+/** The real, Firestore-backed [FilmRepository]. */
+class FirebaseFilmRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-) {
-    suspend fun getFilm(filmId: String): Film? = runCatching {
+) : FilmRepository {
+    override suspend fun getFilm(filmId: String): Film? = runCatching {
         firestore.collection("filmCache").document(filmId).get().await()
             .toObject(Film::class.java)
     }.getOrNull()
 
-    suspend fun getFilms(filmIds: List<String>): Map<String, Film> {
+    override suspend fun getFilms(filmIds: List<String>): Map<String, Film> {
         if (filmIds.isEmpty()) return emptyMap()
         // whereIn is capped at 30 values per query.
         return filmIds.distinct().chunked(30).flatMap { chunk ->

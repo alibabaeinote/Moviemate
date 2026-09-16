@@ -73,19 +73,28 @@ data class Session(
         get() = user != null && (user.pairId == null || pair != null)
 }
 
-class SessionStore(
+/**
+ * An interface, not just a class, so ViewModel tests can hand a fixed
+ * [Session] to a ViewModel without also needing a fake `FirebaseUser` — see
+ * `data.session.FakeSessionStore` in the test source set.
+ */
+interface SessionStore {
+    /** Null while signed out. */
+    val session: Flow<Session?>
+}
+
+/** The real [SessionStore], derived from Firebase Auth and Firestore listeners. */
+class FirebaseSessionStore(
     private val authRepository: AuthRepository,
     private val pairRepository: PairRepository,
-) {
+) : SessionStore {
     /**
-     * Null while signed out.
-     *
      * flatMapLatest at both levels is the point: signing out has to tear down
      * the user listener, and joining a pair has to start the pair listener
      * without the app being restarted.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val session: Flow<Session?> = authRepository.authState().flatMapLatest { firebaseUser ->
+    override val session: Flow<Session?> = authRepository.authState().flatMapLatest { firebaseUser ->
         val uid = firebaseUser?.uid ?: return@flatMapLatest flowOf(null)
 
         pairRepository.observeUser(uid).flatMapLatest { user ->

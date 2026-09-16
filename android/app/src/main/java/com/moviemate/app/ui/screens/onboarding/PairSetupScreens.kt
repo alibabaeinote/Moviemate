@@ -1,6 +1,7 @@
 package com.moviemate.app.ui.screens.onboarding
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import com.moviemate.app.ui.components.SecondaryCta
 import com.moviemate.app.ui.core.ActionState
 import com.moviemate.app.ui.core.UiStateHost
 import com.moviemate.app.ui.core.factoryOf
+import com.moviemate.app.ui.theme.BorderWidth
 import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
 import com.moviemate.app.ui.theme.Radius
@@ -117,6 +119,7 @@ private fun CodeBlock(code: String) {
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.surfaceRaised, RoundedCornerShape(Radius.card))
+            .border(BorderWidth.container, colors.borderHairline, RoundedCornerShape(Radius.card))
             .padding(vertical = Space.sectionGap, horizontal = Space.stack),
         contentAlignment = Alignment.Center,
     ) {

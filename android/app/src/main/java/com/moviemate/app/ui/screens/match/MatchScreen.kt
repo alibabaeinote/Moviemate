@@ -221,6 +221,7 @@ private fun WaitingForPartnerPhase(phase: MatchPhase.WaitingForPartner, onShareA
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(Radius.card))
                 .background(colors.surfaceRaised)
+                .border(BorderWidth.container, colors.borderHairline, RoundedCornerShape(Radius.card))
                 .padding(Space.stack),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(Space.inlineTight),

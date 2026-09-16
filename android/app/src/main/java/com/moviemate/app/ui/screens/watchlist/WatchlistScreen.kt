@@ -1,6 +1,7 @@
 package com.moviemate.app.ui.screens.watchlist
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import com.moviemate.app.ui.core.ActionState
 import com.moviemate.app.ui.core.UiState
 import com.moviemate.app.ui.core.UiStateHost
 import com.moviemate.app.ui.core.factoryOf
+import com.moviemate.app.ui.theme.BorderWidth
 import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
 import com.moviemate.app.ui.theme.Radius
@@ -136,6 +138,7 @@ private fun WatchlistRowCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.card))
             .background(colors.surfaceRaised)
+            .border(BorderWidth.container, colors.borderHairline, RoundedCornerShape(Radius.card))
             .padding(Space.stackTight),
         verticalArrangement = Arrangement.spacedBy(Space.stackTight),
     ) {
@@ -261,6 +264,7 @@ private fun AddFilmSheet(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(Radius.card))
                                 .background(colors.surfaceRaised)
+                                .border(BorderWidth.container, colors.borderHairline, RoundedCornerShape(Radius.card))
                                 .padding(Space.stackTight),
                             horizontalArrangement = Arrangement.spacedBy(Space.stackTight),
                             verticalAlignment = Alignment.CenterVertically,

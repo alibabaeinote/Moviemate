@@ -1,6 +1,6 @@
 # MovieMate — Design System
 
-**Version**: 10.1.2
+**Version**: 10.2.0
 **Status**: 🟢 Active — extensible by design (v8 was marked "locked", which is why it drifted)
 **Source of truth**: [`design/tokens.json`](../design/tokens.json)
 **Validator**: `node design/validate-tokens.mjs`
@@ -171,7 +171,7 @@ validator اجبار می‌کند هر رنگ معنایی یک `$usage` داش
 
 | Kotlin | Dark | Light | کجا استفاده می‌شود |
 |---|---|---|---|
-| `colors.surfaceGround` | `#0F0F12` | `#F8F7F4` | App background on every screen. The scaffold behind everything. |
+| `colors.surfaceGround` | `#0F0F12` | `#FCFBFA` | App background on every screen. The scaffold behind everything. |
 | `colors.surfaceRaised` | `#17171B` | `#FFFFFF` | Cards, list rows, sheets, the bottom nav bar. |
 | `colors.surfaceSunken` | `#1F1F25` | `#EFEEE9` | Taste Dial track, shared-axis track, pressed insets. |
 | `colors.surfaceAccent` | `#1B1E3A` | `#E4E7FB` | Active bottom-nav pill; the 'waiting on partner' strip. |
@@ -499,8 +499,11 @@ breakpoint اختراع کند.
 از قبل تعریف و تأیید شده بودند، اما فقط در یک جا (ردیف‌های fallback در Match)
 واقعاً استفاده می‌شدند — بقیه‌ی کارت‌ها (سه کارت آماری Us، نمودار Journey، ردیف
 compatibility) فقط با تفاوت تونال ground/raised از هم جدا می‌شدند، بدون خط دور.
-همین سه‌تا حالا این حاشیه را دارند؛ بقیه‌ی کارت‌های `surfaceRaised` در اپ (ردیف‌های
-Watchlist، کارت کد دعوت) هنوز بدون آن‌اند — یک اصلاح یکدست برای دور بعد.
+همین سه‌تا حالا این حاشیه را دارند. **به‌روزرسانی v10.2:** بقیه‌ی کارت‌های
+`surfaceRaised` (ردیف‌های Watchlist، کارت کد دعوت — در آنبوردینگ و در صفحه‌ی
+انتظار Match) هم اکنون همین حاشیه را گرفته‌اند؛ الگو حالا یکدست است. عمداً
+دست‌نخورده ماندند: نوار ناوبری پایین (سایه‌ی `Elevation.floating` خودش کافی
+است) و چیپ‌های تاگل ژانر در آنبوردینگ (چیزی شبیه کارت نیستند).
 
 ---
 
@@ -587,6 +590,27 @@ SVG خطی، گرید ۲۴×۲۴، stroke ۱.۷۵–۲dp، `round` برای cap 
 ---
 
 ## ۱۶. تاریخچه‌ی نسخه‌ها
+
+### v10.2.0 — ۲۰۲۶/۰۹/۱۶
+
+v10.0.0 عمداً `sys.light.surface.ground` را روی `paper.25` نگه داشت، نه
+`paper.0` خالص — چون چند کارت بدون border فقط با همین تفاوت تونال از زمینه
+جدا می‌شدند. حالا که (v10.1.1 و همین نسخه) همه‌ی آن کارت‌ها حاشیه‌ی خودشان را
+دارند، آن محدودیت دیگر برقرار نیست، و کاربر مستقیماً خواست زمینه نزدیک‌تر به
+سفید بشود.
+
+**تغییرات شکننده**
+- `ref.palette.paper.25` از `#F8F7F4` به `#FCFBFA` رفت — نزدیک‌تر به
+  `paper.0`، فقط برای تم روشن (تم تیره دست‌نخورده ماند، طبق قاعده‌ی همیشگی
+  این پروژه که تیره را جدا آزمایش و تأیید می‌کند).
+- کارت کد دعوت (هم در `PairSetupScreens.kt`، هم نسخه‌ی صفحه‌ی انتظار در
+  `MatchScreen.kt`) و ردیف‌های Watchlist (اصلی و نتیجه‌ی جست‌وجو) حالا
+  `BorderWidth.container` + `colors.borderHairline` دارند — همان الگوی سه
+  کارت آماری Us در v10.1.1، اعمال‌شده روی بقیه‌ی نقاطی که تفاوت تونال
+  تنها جداکننده‌شان بود.
+
+**بدون تغییر (عمدی)**
+- نوار ناوبری پایین و چیپ‌های تاگل ژانر — بخش ۱۲.
 
 ### v10.1.2 — ۲۰۲۶/۰۹/۱۶
 

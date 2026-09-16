@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -30,11 +31,14 @@ import com.moviemate.app.ui.theme.MovieMateType
 import kotlinx.coroutines.launch
 
 /**
- * A person's picture, or their initial on a flat tint when they have none.
+ * A person's picture in a ring, or — with none — their initial on a flat
+ * fill of their own identity color, not a ring around empty space.
  *
  * [ringColor] is `colors.partnerA` / `colors.partnerB` at every call site —
- * one color is always one person, on every screen (Design System §4.5), and
- * the avatar ring is where that identity shows up outside the Taste Dial.
+ * one color is always one person, on every screen (Design System §4.5).
+ * With a picture it stays a ring around it; without one it becomes the fill
+ * itself, since a ring around a blank tile reads as an empty state rather
+ * than an identity.
  */
 @Composable
 fun Avatar(
@@ -60,30 +64,47 @@ fun Avatar(
             JoinGlow(size = size, glowColor = colors.textReward)
         }
 
-        Box(
-            modifier = Modifier
-                .size(size)
-                .clip(CircleShape)
-                .border(BorderStroke(2.dp, ringColor), CircleShape)
-                .background(colors.surfaceSunken),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (avatarUrl != null) {
+        if (avatarUrl != null) {
+            Box(
+                modifier = Modifier
+                    .size(size)
+                    .clip(CircleShape)
+                    .border(BorderStroke(2.dp, ringColor), CircleShape)
+                    .background(colors.surfaceSunken),
+                contentAlignment = Alignment.Center,
+            ) {
                 AsyncImage(
                     model = avatarUrl,
                     contentDescription = if (name != null) "$name's picture" else "Profile picture",
                     modifier = Modifier.size(size).clip(CircleShape),
                 )
-            } else {
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(size)
+                    .clip(CircleShape)
+                    .background(ringColor),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
                     text = name?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
                     style = MovieMateType.statCaption,
-                    color = colors.textSecondary,
+                    color = ringColor.legibleForeground(),
                 )
             }
         }
     }
 }
+
+/**
+ * Black or white, whichever reads on this fill. Needed because partner
+ * colors aren't drawn from a fixed light/dark pair — dark theme keeps
+ * `partner.b` lime as a deliberate identity exception (Design System §4.4),
+ * which is far too bright for white text.
+ */
+private fun Color.legibleForeground(): Color =
+    if (luminance() > 0.5f) Color.Black else Color.White
 
 @Composable
 private fun PulseRing(size: Dp, ringColor: Color) {

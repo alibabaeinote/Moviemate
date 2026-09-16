@@ -1,16 +1,17 @@
 package com.moviemate.app.ui.screens.us
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,6 +36,7 @@ import com.moviemate.app.ui.components.SecondaryCta
 import com.moviemate.app.ui.components.pressableCard
 import com.moviemate.app.ui.core.UiStateHost
 import com.moviemate.app.ui.core.factoryOf
+import com.moviemate.app.ui.theme.BorderWidth
 import com.moviemate.app.ui.theme.MovieMateTheme
 import com.moviemate.app.ui.theme.MovieMateType
 import com.moviemate.app.ui.theme.Radius
@@ -225,7 +229,9 @@ private fun Stat(
         modifier = modifier
             .clip(RoundedCornerShape(Radius.card))
             .background(colors.surfaceRaised)
-            .padding(Space.stackTight),
+            .border(BorderWidth.container, colors.borderHairline, RoundedCornerShape(Radius.card))
+            .padding(Space.stack),
+        verticalArrangement = Arrangement.spacedBy(Space.inlineTight),
     ) {
         Text(value, style = MovieMateType.statTileNumber, color = colors.textAccent)
         Text(caption, style = MovieMateType.statTileCaption, color = colors.textPrimary)
@@ -236,8 +242,8 @@ private fun Stat(
 }
 
 /**
- * Six trailing weeks of watch counts, oldest to newest, as bars rather than a
- * badge — a trend, not a score to protect (PRD §7.4).
+ * Six trailing weeks of watch counts, oldest to newest, as a row of progress
+ * rings rather than a badge — a trend, not a score to protect (PRD §7.4).
  */
 @Composable
 private fun JourneyChart(weeks: List<Int>, modifier: Modifier = Modifier) {
@@ -249,38 +255,42 @@ private fun JourneyChart(weeks: List<Int>, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.card))
             .background(colors.surfaceRaised)
-            .padding(Space.stackTight),
-        horizontalArrangement = Arrangement.spacedBy(Space.inline),
+            .border(BorderWidth.container, colors.borderHairline, RoundedCornerShape(Radius.card))
+            .padding(Space.stack),
+        horizontalArrangement = Arrangement.spacedBy(Space.inlineTight),
     ) {
         weeks.forEach { count ->
+            val fraction = count / maxCount.toFloat()
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Space.inlineTight),
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(JOURNEY_BAR_HEIGHT)
-                        .clip(RoundedCornerShape(Radius.pill))
-                        .background(colors.surfaceSunken),
-                    contentAlignment = Alignment.BottomCenter,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(count / maxCount.toFloat())
-                            .clip(RoundedCornerShape(Radius.pill))
-                            .background(colors.actionPrimaryFill),
+                Canvas(modifier = Modifier.size(JOURNEY_RING_SIZE)) {
+                    val stroke = Stroke(width = JOURNEY_RING_STROKE.toPx(), cap = StrokeCap.Round)
+                    drawArc(
+                        color = colors.surfaceSunken,
+                        startAngle = 0f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = stroke,
+                    )
+                    drawArc(
+                        color = colors.actionPrimaryFill,
+                        startAngle = -90f,
+                        sweepAngle = 360f * fraction,
+                        useCenter = false,
+                        style = stroke,
                     )
                 }
-                Spacer(Modifier.height(Space.inlineTight))
                 Text(count.toString(), style = MovieMateType.meta, color = colors.textSecondary)
             }
         }
     }
 }
 
-private val JOURNEY_BAR_HEIGHT = 56.dp
+private val JOURNEY_RING_SIZE = 44.dp
+private val JOURNEY_RING_STROKE = 5.dp
 
 /**
  * One line, not a badge tile: below [com.moviemate.app.ui.screens.us.UsStatsMath.MIN_SHARED_RATED_FILMS]
@@ -294,7 +304,8 @@ private fun CompatibilityRow(percent: Int?, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.card))
             .background(colors.surfaceRaised)
-            .padding(Space.stackTight),
+            .border(BorderWidth.container, colors.borderHairline, RoundedCornerShape(Radius.card))
+            .padding(Space.stack),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

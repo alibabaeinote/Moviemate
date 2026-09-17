@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 /** One `updateNotificationSettings` call, recorded for assertions. */
 data class UpdateNotificationSettingsCall(val uid: String, val settings: NotificationSettings)
 
+/** One `updateProfile` call, recorded for assertions. */
+data class UpdateProfileCall(val uid: String, val name: String, val avatarUrl: String?)
+
 /**
  * An in-memory [AuthRepository] for ViewModel tests. [currentUser] and
  * [authState] stay null throughout: nothing under test needs a real
@@ -26,13 +29,16 @@ class FakeAuthRepository : AuthRepository {
     var uploadAvatarResult: Result<String> = Result.success("https://example.com/avatar.jpg")
 
     val updatedNotificationSettings = mutableListOf<UpdateNotificationSettingsCall>()
+    val updatedProfiles = mutableListOf<UpdateProfileCall>()
     var signedOut = false
 
     override suspend fun signInWithGoogle(idToken: String): Result<FirebaseUser> =
         signInResult ?: error("signInResult was not configured for this test")
 
-    override suspend fun updateProfile(uid: String, name: String, avatarUrl: String?): Result<Unit> =
-        updateProfileResult
+    override suspend fun updateProfile(uid: String, name: String, avatarUrl: String?): Result<Unit> {
+        updatedProfiles.add(UpdateProfileCall(uid, name, avatarUrl))
+        return updateProfileResult
+    }
 
     override suspend fun updateNotificationSettings(
         uid: String,

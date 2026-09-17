@@ -22,6 +22,15 @@ data class ConfirmWatchedCall(val pairId: String, val matchId: String, val uid: 
 /** One `chooseFallbackFilm` call, recorded for assertions. */
 data class ChooseFallbackCall(val pairId: String, val matchId: String, val filmId: String)
 
+/** One `submitRating` call, recorded for assertions. */
+data class SubmitRatingCall(
+    val pairId: String,
+    val uid: String,
+    val filmId: String,
+    val score: Double,
+    val isInitialOnboarding: Boolean,
+)
+
 /**
  * An in-memory [PairRepository] for ViewModel tests — no Firestore, no
  * Cloud Functions. `pairTotalsResult`/`statsInputsResult`/etc. are read
@@ -48,6 +57,8 @@ class FakePairRepository : PairRepository {
     val chosenFallbacks = mutableListOf<ChooseFallbackCall>()
     val scheduledWatches = mutableListOf<ScheduleWatchCall>()
     val confirmedWatched = mutableListOf<ConfirmWatchedCall>()
+    val submittedRatings = mutableListOf<SubmitRatingCall>()
+    var submitRatingResult: Result<Unit> = Result.success(Unit)
 
     fun setUser(uid: String, user: User?) {
         userFlows.getOrPut(uid) { MutableStateFlow(null) }.value = user
@@ -108,7 +119,10 @@ class FakePairRepository : PairRepository {
         score: Double,
         isInitialOnboarding: Boolean,
         reactionEmoji: String?,
-    ): Result<Unit> = Result.success(Unit)
+    ): Result<Unit> {
+        submittedRatings.add(SubmitRatingCall(pairId, uid, filmId, score, isInitialOnboarding))
+        return submitRatingResult
+    }
 
     override suspend fun commitToMatch(pairId: String, matchId: String, isUserA: Boolean): Result<Unit> {
         committedMatches.add(CommitMatchCall(pairId, matchId, isUserA))

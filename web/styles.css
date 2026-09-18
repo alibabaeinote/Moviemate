@@ -1,0 +1,153 @@
+/* Mirrors design/tokens.json (v10.2.1) — dark-first, same as the Kotlin app
+   and the prototype. Only the tokens this one screen actually uses. */
+:root {
+  --ground: #0f0f12;
+  --raised: #17171b;
+  --hairline: #2a2a32;
+  --ink: #f1f0ec;
+  --muted: #9b9b96;
+  --accent-text: #7c89ff;
+  --on-fill: #ffffff;
+  --fill: #1f2fe3;
+  --fill-hover: #2937f0;
+  --decorative: #ff6a46;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground: #fcfbfa;
+    --raised: #ffffff;
+    --hairline: #dad8d0;
+    --ink: #101012;
+    --muted: #696963;
+    --accent-text: #1f2fe3;
+    --fill: #1f2fe3;
+    --fill-hover: #2937f0;
+    --decorative: #ff6a46;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  padding: 20px;
+}
+.card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--raised);
+  border: 1.5px solid var(--hairline);
+  border-radius: 24px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+h1 {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  margin: 0;
+  color: var(--accent-text);
+}
+p.sub {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 14px 20px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 15.5px;
+  cursor: pointer;
+  transition: background-color 160ms ease, transform 120ms ease;
+}
+button:active {
+  transform: scale(0.97);
+}
+button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.btn-primary {
+  background: var(--fill);
+  color: var(--on-fill);
+}
+.btn-primary:hover {
+  background: var(--fill-hover);
+}
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px solid var(--hairline);
+}
+.field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+  display: block;
+}
+input[type="text"] {
+  width: 100%;
+  background: var(--ground);
+  border: 1.5px solid var(--hairline);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14.5px;
+}
+input[type="text"]:focus {
+  outline: 2px solid var(--fill);
+  outline-offset: 1px;
+}
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.avatar {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent-text) center/cover no-repeat;
+  color: var(--on-fill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+}
+.email {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.status {
+  font-size: 13.5px;
+  line-height: 1.5;
+  display: none;
+}
+[hidden] {
+  display: none !important;
+}

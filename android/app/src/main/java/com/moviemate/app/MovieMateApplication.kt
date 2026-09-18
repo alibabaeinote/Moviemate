@@ -3,10 +3,12 @@ package com.moviemate.app
 import android.app.Application
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
+import com.moviemate.app.BuildConfig
 import com.moviemate.app.di.AppGraph
 import com.moviemate.app.di.DefaultAppGraph
 
@@ -22,6 +24,9 @@ class MovieMateApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         FirebaseApp.initializeApp(this)
+        // A debug build crashing under a debugger attached is not a signal
+        // worth polluting the beta crash-rate dashboard with.
+        FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
         graph = DefaultAppGraph(this)
         MovieMateMessagingService.ensureChannels(this)
         refreshFcmToken()

@@ -8,6 +8,7 @@ composeBom = "2024.12.01"
 navigation = "2.8.5"
 firebaseBom = "33.7.0"
 googleServices = "4.4.2"
+firebaseCrashlyticsPlugin = "3.0.2"
 coil = "2.7.0"
 coroutines = "1.9.0"
 credentials = "1.3.0"
@@ -40,6 +41,10 @@ firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore
 firebase-functions = { group = "com.google.firebase", name = "firebase-functions-ktx" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage-ktx" }
+# Automatic fatal-crash reporting only — no Analytics, no manual event
+# tracking, in line with the PRD's "no data sharing with third parties"
+# stance. Crashlytics no longer requires Analytics to work.
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics-ktx" }
 
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 # Google Sign-In goes through Credential Manager, not the deprecated
@@ -61,3 +66,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }

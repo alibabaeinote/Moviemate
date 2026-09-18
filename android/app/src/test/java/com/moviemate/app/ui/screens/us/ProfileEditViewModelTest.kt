@@ -87,7 +87,7 @@ class ProfileEditViewModelTest {
 
     @Test
     fun `save is a no-op before the session has loaded`() {
-        val viewModel = ProfileEditViewModel(authRepository, FakeSessionStore(session = null))
+        val viewModel = ProfileEditViewModel(authRepository, FakeSessionStore(initial = null))
 
         viewModel.save(newAvatarBytes = null)
 

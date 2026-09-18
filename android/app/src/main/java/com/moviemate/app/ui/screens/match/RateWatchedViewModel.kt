@@ -40,7 +40,12 @@ class RateWatchedViewModel(
 
     init {
         viewModelScope.launch {
-            val session = sessionStore.session.first { it?.pairId != null }
+            // Waits for the session to settle (paired-and-loaded, or genuinely
+            // unpaired), not merely for a pairId — filtering on `it?.pairId !=
+            // null` would make the "not in a pair" branch below unreachable,
+            // since a value satisfying that predicate can never have a null
+            // pairId, and a session that never pairs would hang here forever.
+            val session = sessionStore.session.first { it == null || it.isSettled }
             val pairId = session?.pairId
 
             if (pairId == null) {
@@ -71,7 +76,7 @@ class RateWatchedViewModel(
     fun submit() {
         val id = filmId ?: return
         runAction {
-            val session = sessionStore.session.first { it?.pairId != null }
+            val session = sessionStore.session.first { it == null || it.isSettled }
                 ?: return@runAction Result.failure<Unit>(IllegalStateException("No pair."))
             val pairId = session.pairId
                 ?: return@runAction Result.failure<Unit>(IllegalStateException("No pair."))

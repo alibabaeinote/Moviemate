@@ -11,6 +11,7 @@ import com.moviemate.app.data.repository.PairRepository
 import com.moviemate.app.data.session.FirebaseSessionStore
 import com.moviemate.app.data.session.OnboardingDraftStore
 import com.moviemate.app.data.session.SessionStore
+import com.moviemate.app.data.session.SharedPrefsOnboardingDraftStore
 
 /**
  * The app's object graph, by hand.
@@ -37,7 +38,7 @@ class DefaultAppGraph(context: Context) : AppGraph {
     override val pairRepository: PairRepository = FirebasePairRepository()
     override val filmRepository: FilmRepository = FirebaseFilmRepository()
     override val sessionStore: SessionStore = FirebaseSessionStore(authRepository, pairRepository)
-    override val onboardingDraftStore = OnboardingDraftStore(context.applicationContext)
+    override val onboardingDraftStore: OnboardingDraftStore = SharedPrefsOnboardingDraftStore(context.applicationContext)
 }
 
 /**

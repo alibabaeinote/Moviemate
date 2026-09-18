@@ -20,40 +20,23 @@ import org.json.JSONObject
  * commitment) therefore requires buffering: collect the scores, then flush them
  * once the user picks invite or join.
  *
- * Backed by SharedPreferences rather than held in memory because ten films is
- * several minutes of a person's attention, and Android will kill a backgrounded
- * process without warning. Losing that to a phone call is not acceptable.
+ * An interface, not just a class, so ViewModel tests can hand a plain in-memory
+ * fake instead of a real one backed by SharedPreferences — see
+ * `data.session.FakeOnboardingDraftStore` in the test source set.
  */
-class OnboardingDraftStore(context: Context) {
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+interface OnboardingDraftStore {
 
     data class DraftRating(val filmId: String, val score: Double)
 
     /** Scores recorded so far, oldest first. */
-    fun ratings(): List<DraftRating> {
-        val raw = prefs.getString(KEY_RATINGS, null) ?: return emptyList()
-        return runCatching {
-            val array = JSONArray(raw)
-            (0 until array.length()).map { i ->
-                val item = array.getJSONObject(i)
-                DraftRating(item.getString("filmId"), item.getDouble("score"))
-            }
-        }.getOrDefault(emptyList())
-    }
+    fun ratings(): List<DraftRating>
 
     /** Records a score, replacing any earlier score for the same film. */
-    fun record(filmId: String, score: Double) {
-        val updated = ratings().filterNot { it.filmId == filmId } + DraftRating(filmId, score)
-        write(updated)
-    }
+    fun record(filmId: String, score: Double)
 
-    fun count(): Int = ratings().size
+    fun count(): Int
 
-    fun clear() {
-        prefs.edit().remove(KEY_RATINGS).apply()
-    }
+    fun clear()
 
     /**
      * Write the buffered scores into the pair, then clear the buffer.
@@ -68,6 +51,10 @@ class OnboardingDraftStore(context: Context) {
      * intact so a retry re-sends everything; `submitRating` writes to a
      * deterministic document id (`{uid}_{filmId}`), so re-sending overwrites
      * rather than duplicating.
+     *
+     * A default method, not per-implementation: it only ever calls back into
+     * [ratings], [clear], and the given [pairRepository] — a fake gets this
+     * behavior for free instead of a second copy that could drift from it.
      */
     suspend fun flush(
         pairRepository: PairRepository,
@@ -87,8 +74,42 @@ class OnboardingDraftStore(context: Context) {
         clear()
         pending.size
     }
+}
 
-    private fun write(ratings: List<DraftRating>) {
+/**
+ * Backed by SharedPreferences rather than held in memory because ten films is
+ * several minutes of a person's attention, and Android will kill a backgrounded
+ * process without warning. Losing that to a phone call is not acceptable.
+ */
+class SharedPrefsOnboardingDraftStore(context: Context) : OnboardingDraftStore {
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    override fun ratings(): List<OnboardingDraftStore.DraftRating> {
+        val raw = prefs.getString(KEY_RATINGS, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).map { i ->
+                val item = array.getJSONObject(i)
+                OnboardingDraftStore.DraftRating(item.getString("filmId"), item.getDouble("score"))
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    override fun record(filmId: String, score: Double) {
+        val updated = ratings().filterNot { it.filmId == filmId } +
+            OnboardingDraftStore.DraftRating(filmId, score)
+        write(updated)
+    }
+
+    override fun count(): Int = ratings().size
+
+    override fun clear() {
+        prefs.edit().remove(KEY_RATINGS).apply()
+    }
+
+    private fun write(ratings: List<OnboardingDraftStore.DraftRating>) {
         val array = JSONArray()
         ratings.forEach { draft ->
             array.put(JSONObject().put("filmId", draft.filmId).put("score", draft.score))

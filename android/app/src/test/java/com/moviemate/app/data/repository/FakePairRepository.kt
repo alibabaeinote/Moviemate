@@ -59,6 +59,14 @@ class FakePairRepository : PairRepository {
     val confirmedWatched = mutableListOf<ConfirmWatchedCall>()
     val submittedRatings = mutableListOf<SubmitRatingCall>()
     var submitRatingResult: Result<Unit> = Result.success(Unit)
+    var createPairResult: Result<InviteInfo> =
+        Result.success(InviteInfo(pairId = "p1", inviteCode = "ABC123", expiresAtMillis = 0L))
+    var createPairCallCount = 0
+    var joinPairResult: Result<String> = Result.success("p1")
+    val joinedInviteCodes = mutableListOf<String>()
+    var listGenresResult: Result<List<TmdbGenre>> = Result.success(emptyList())
+    var getOnboardingFilmsResult: Result<List<DeckFilm>> = Result.success(emptyList())
+    val requestedGenreIds = mutableListOf<List<Int>>()
 
     fun setUser(uid: String, user: User?) {
         userFlows.getOrPut(uid) { MutableStateFlow(null) }.value = user
@@ -76,15 +84,22 @@ class FakePairRepository : PairRepository {
         matchFlows.getOrPut(pairId) { MutableStateFlow(null) }.value = match
     }
 
-    override suspend fun createPair(): Result<InviteInfo> =
-        Result.success(InviteInfo(pairId = "p1", inviteCode = "ABC123", expiresAtMillis = 0L))
+    override suspend fun createPair(): Result<InviteInfo> {
+        createPairCallCount++
+        return createPairResult
+    }
 
-    override suspend fun joinPair(inviteCode: String): Result<String> = Result.success("p1")
+    override suspend fun joinPair(inviteCode: String): Result<String> {
+        joinedInviteCodes.add(inviteCode)
+        return joinPairResult
+    }
 
-    override suspend fun listGenres(): Result<List<TmdbGenre>> = Result.success(emptyList())
+    override suspend fun listGenres(): Result<List<TmdbGenre>> = listGenresResult
 
-    override suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>> =
-        Result.success(emptyList())
+    override suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>> {
+        requestedGenreIds.add(genreIds)
+        return getOnboardingFilmsResult
+    }
 
     override suspend fun searchFilms(query: String): Result<List<DeckFilm>> = searchFilmsResult
 

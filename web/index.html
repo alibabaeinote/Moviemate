@@ -44,6 +44,38 @@
     <button class="btn-secondary" id="signOutBtn" type="button">Sign out</button>
   </div>
 
+  <div class="card" id="onboarding" hidden>
+    <div id="obGenres">
+      <h2>What do you like?</h2>
+      <p class="sub">Pick a few. We'll build your rating deck from them.</p>
+      <div class="chip-row" id="genreChips"></div>
+      <button class="btn-primary" id="startDeckBtn" type="button">Start rating</button>
+    </div>
+
+    <div id="obDeck" hidden>
+      <p class="sub" id="obProgress"></p>
+      <div class="progress-rail"><div class="progress-fill" id="obProgressFill"></div></div>
+      <div class="poster" id="obPoster"></div>
+      <div class="film-title" id="obFilmTitle"></div>
+      <p class="sub" id="obFilmMeta"></p>
+      <div class="dial">
+        <div class="dial-score" id="obScore">50</div>
+        <div class="sub" id="obScoreLabel">It was fine</div>
+        <input type="range" min="0" max="100" value="50" id="obDial" />
+      </div>
+      <button class="btn-primary" id="obRateBtn" type="button">Rate it</button>
+      <button class="btn-secondary" id="obSkipBtn" type="button">Haven't seen it</button>
+    </div>
+
+    <div id="obExhausted" hidden>
+      <h2>A few more?</h2>
+      <p class="sub">That's the end of this deck and we're still short. Here are some more.</p>
+      <button class="btn-primary" id="obExtendBtn" type="button">Show me more films</button>
+    </div>
+
+    <div class="status" id="obStatus"></div>
+  </div>
+
   <div class="card" id="pairing" hidden>
     <div id="pairingChoice">
       <h2>Find your partner</h2>
@@ -57,7 +89,8 @@
       <p class="sub">They install MovieMate, sign in, and enter this.</p>
       <div class="invite-code" id="inviteCodeDisplay"></div>
       <button class="btn-secondary" id="copyInviteBtn" type="button">Copy code</button>
-      <p class="sub" id="waitingText">Waiting for your partner…</p>
+      <p class="sub" id="waitingText">Your partner installs MovieMate, rates their own ten, then enters this.</p>
+      <button class="btn-primary" id="continueFromInviteBtn" type="button">Continue</button>
     </div>
 
     <div id="pairingJoin" hidden>
@@ -70,9 +103,15 @@
     <div id="pairingDone" hidden>
       <h2>You're paired 🎉</h2>
       <p class="sub" id="partnerText"></p>
+      <button class="btn-primary" id="continueFromDoneBtn" type="button">Continue</button>
     </div>
 
     <div class="status" id="pairingStatus"></div>
+  </div>
+
+  <div class="card" id="matchPlaceholder" hidden>
+    <h2>You're all set</h2>
+    <p class="sub">Onboarding's done and you're paired. The daily Match screen isn't built for web yet — it's the next slice.</p>
   </div>
 
   <script type="module" src="app.js"></script>

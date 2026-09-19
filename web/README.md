@@ -1,8 +1,18 @@
 # MovieMate web
 
 A real (not a demo) web client against `moviemate-prod-2026`: Google
-sign-in, profile, and pairing (invite/join) so far — built incrementally,
-same backend and schema as the Android app.
+sign-in, profile, onboarding (genre pick + Taste Dial rating deck), and
+pairing (invite/join) so far — built incrementally, same backend and
+schema as the Android app.
+
+The route through these (which screen to land on) is decided **once**
+per sign-in, mirroring `AppEntryViewModel.startRouteFor` in the Android
+app — not continuously recomputed from live data. Recomputing on every
+Firestore snapshot would yank you out of, say, the invite-code screen the
+instant your own `pairId` loads, before you've had a chance to copy it.
+Each screen instead navigates forward explicitly once it's actually done
+(reaching the rating target, successfully pairing), the same way Android's
+screens do.
 
 ## Run it locally first
 
@@ -90,14 +100,20 @@ silent hang.
 - Lets you edit and save your display name, via the same
   `name`/`avatarUrl`-only write the security rules allow a user to make on
   their own document.
-- Pairing: get an invite code (live-updates to "paired" the moment your
-  partner joins, via a Firestore listener — no refresh needed) or enter
-  one you were given.
+- Onboarding: pick genres, then rate a deck of real TMDB films with a
+  Taste Dial (0-100). Unpaired, scores buffer in `localStorage` (mirrors
+  `OnboardingDraftStore.kt`); once paired, they write straight to
+  `pairs/{pairId}/ratings`. Either way, reaching the Kotlin app's actual
+  rating target (10 rated is what the Android app requires) flushes the
+  buffer and hands off to pairing.
+- Pairing: get an invite code or enter one you were given. There's no
+  live "partner joined" indicator here on purpose (see the routing note
+  above) — once you're paired, tap Continue.
 
 ## What's still not built
 
 - Avatar upload (Storage) — the Google account photo is used as-is.
-- Onboarding (genre pick + rating deck against real TMDB films), the daily
-  match screen, and watchlist/search. These are real next slices, not
-  skipped by accident — the Android app remains the only client that has
-  any of them built.
+- The daily Match screen and watchlist/search. These are real next
+  slices, not skipped by accident — the Android app remains the only
+  client that has them built. Reaching "paired + onboarding done" here
+  currently lands on a placeholder card that says so.

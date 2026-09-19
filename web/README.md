@@ -1,8 +1,8 @@
-# MovieMate web — sign-in + profile
+# MovieMate web
 
-A minimal, real (not a demo) web client: Google sign-in via Firebase Auth,
-and editing the same `users/{uid}` document the Android app reads and
-writes. Scoped to exactly that — no Match/Watchlist/Us screens here yet.
+A real (not a demo) web client against `moviemate-prod-2026`: Google
+sign-in, profile, and pairing (invite/join) so far — built incrementally,
+same backend and schema as the Android app.
 
 ## Run it locally first
 
@@ -50,7 +50,38 @@ This publishes `web/` to `https://moviemate-prod-2026.web.app`, which
 Firebase auto-authorizes for sign-in — no extra domain configuration
 needed.
 
-## What this does and doesn't do
+## Before pairing will work: Cloud Functions have to be live
+
+`createPair`/`joinPair` (and everything past them — onboarding films,
+daily match, watchlist search) are **Cloud Functions**, not direct
+Firestore writes — the security rules deliberately close client writes to
+`/pairs` and leave that to the server (see `firestore.rules`). None of
+that has been deployed yet. Three things, in order:
+
+1. **Upgrade the Firebase project to the Blaze (pay-as-you-go) plan.**
+   This repo's functions use the 2nd-gen `firebase-functions/v2` API,
+   which Cloud Functions requires Blaze to deploy at all — not just for
+   TMDB's outbound network calls. Blaze's free tier (2M invocations/month)
+   comfortably covers a two-person app; this needs a payment method on
+   file regardless. Console → Project settings → Usage and billing →
+   Modify plan.
+2. **Get a TMDB API read access token** (themoviedb.org → an account →
+   Settings → API → request a key → copy the "API Read Access Token", not
+   the shorter v3 key) and set it as a secret:
+   ```
+   npx firebase-tools functions:secrets:set TMDB_ACCESS_TOKEN --project moviemate-prod-2026
+   ```
+   (pastes in, hidden, when prompted).
+3. **Deploy the functions:**
+   ```
+   npx firebase-tools deploy --only functions --project moviemate-prod-2026
+   ```
+
+Until all three are done, "Get an invite code" / "I have a code" will
+fail with a `functions/not-found`-style error — surfaced in the UI, not a
+silent hang.
+
+## What this does so far
 
 - Signs in with Google (`signInWithPopup`), seeding `users/{uid}` on the
   account's **first** sign-in only — mirrors
@@ -59,8 +90,14 @@ needed.
 - Lets you edit and save your display name, via the same
   `name`/`avatarUrl`-only write the security rules allow a user to make on
   their own document.
-- Does **not** upload a custom avatar photo yet (Storage upload) — the
-  Google account photo is used as-is. A real next step, not done here to
-  keep this first slice small.
-- Does **not** touch pairing, matches, watchlist, or anything else — the
-  Android app remains the only client that has any of that built.
+- Pairing: get an invite code (live-updates to "paired" the moment your
+  partner joins, via a Firestore listener — no refresh needed) or enter
+  one you were given.
+
+## What's still not built
+
+- Avatar upload (Storage) — the Google account photo is used as-is.
+- Onboarding (genre pick + rating deck against real TMDB films), the daily
+  match screen, and watchlist/search. These are real next slices, not
+  skipped by accident — the Android app remains the only client that has
+  any of them built.

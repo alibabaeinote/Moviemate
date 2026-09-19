@@ -148,6 +148,29 @@ input[type="text"]:focus {
   line-height: 1.5;
   display: none;
 }
+h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+#pairing > div {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.invite-code {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: 4px;
+  text-align: center;
+  color: var(--accent-text);
+  background: var(--ground);
+  border: 1.5px solid var(--hairline);
+  border-radius: 16px;
+  padding: 18px;
+}
 [hidden] {
   display: none !important;
 }

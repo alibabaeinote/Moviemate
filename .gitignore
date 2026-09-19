@@ -19,6 +19,7 @@ serviceAccountKey.json
 .env.*
 !.env.example
 google-services.json
+web/tmdb-config.js
 
 # Android / Gradle
 android/.gradle/

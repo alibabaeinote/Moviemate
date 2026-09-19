@@ -16,6 +16,12 @@ screens do.
 
 ## Run it locally first
 
+First, `cp web/tmdb-config.example.js web/tmdb-config.js` — a gitignored
+file `app.js` imports at the top; without it, nothing here loads at all.
+(You can leave the placeholder key in it for now — sign-in and pairing
+don't need it. See "Before pairing or onboarding films will work" below
+for getting a real one.)
+
 Firebase Auth's popup sign-in only works from an **authorized domain**.
 `localhost` is authorized by default for every Firebase project, so you
 don't need to deploy anything to try this:
@@ -89,11 +95,21 @@ free account and key:
 2. Copy the **"API Key (v3 auth)"** value — the short one, *not* the
    longer "API Read Access Token" underneath it (that one's a Bearer
    token meant for server-side use).
-3. Paste it into `web/tmdb-config.js`, replacing the placeholder string.
+3. `cp web/tmdb-config.example.js web/tmdb-config.js`, then paste your
+   key into the **new** `tmdb-config.js`, not the example file.
 
-Without that, genre pick and the rating deck will show a "TMDB rejected
-the API key" error — surfaced in the UI, not a silent hang. Pairing and
-everything else that only touches Firestore works without it.
+`web/tmdb-config.js` is gitignored on purpose: this repo is public, and a
+real key committed to it would be visible to anyone browsing GitHub (key-
+scraping bots included), regardless of whether the site is ever deployed
+— a different exposure than the browser network tab, which is where
+TMDB's v3 `api_key` scheme expects it to show up. `firebase deploy
+--only hosting` uploads whatever's on disk at deploy time, not what's
+committed, so the gitignored file still deploys fine.
+
+Without a real key in that file, genre pick and the rating deck will
+show a "TMDB rejected the API key" error — surfaced in the UI, not a
+silent hang. Pairing and everything else that only touches Firestore
+works without it.
 
 If you'd rather run the real Cloud Functions path instead (e.g. once you
 do have Blaze available, or you're testing the Android app against the

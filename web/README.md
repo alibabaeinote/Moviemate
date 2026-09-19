@@ -60,36 +60,47 @@ This publishes `web/` to `https://moviemate-prod-2026.web.app`, which
 Firebase auto-authorizes for sign-in — no extra domain configuration
 needed.
 
-## Before pairing will work: Cloud Functions have to be live
+## Before pairing or onboarding films will work: a TMDB API key
 
-`createPair`/`joinPair` (and everything past them — onboarding films,
-daily match, watchlist search) are **Cloud Functions**, not direct
-Firestore writes — the security rules deliberately close client writes to
-`/pairs` and leave that to the server (see `firestore.rules`). None of
-that has been deployed yet. Three things, in order:
+`createPair`/`joinPair`/`listGenres`/`getOnboardingFilms` are Cloud
+Functions in the Android app, but 2nd-gen Cloud Functions require the
+**Blaze (pay-as-you-go)** plan to deploy at all — not just for their
+outbound TMDB calls — and that needs a payment method on file. If you
+don't have a card to put on Blaze, this web client doesn't need one: it
+never calls those functions at all.
 
-1. **Upgrade the Firebase project to the Blaze (pay-as-you-go) plan.**
-   This repo's functions use the 2nd-gen `firebase-functions/v2` API,
-   which Cloud Functions requires Blaze to deploy at all — not just for
-   TMDB's outbound network calls. Blaze's free tier (2M invocations/month)
-   comfortably covers a two-person app; this needs a payment method on
-   file regardless. Console → Project settings → Usage and billing →
-   Modify plan.
-2. **Get a TMDB API read access token** (themoviedb.org → an account →
-   Settings → API → request a key → copy the "API Read Access Token", not
-   the shorter v3 key) and set it as a secret:
-   ```
-   npx firebase-tools functions:secrets:set TMDB_ACCESS_TOKEN --project moviemate-prod-2026
-   ```
-   (pastes in, hidden, when prompted).
-3. **Deploy the functions:**
-   ```
-   npx firebase-tools deploy --only functions --project moviemate-prod-2026
-   ```
+Instead:
+- Onboarding calls TMDB directly from the browser (`web/tmdb.js`), using
+  TMDB's v3 `api_key` query-param auth, which is designed for exactly
+  this — client-side calls, no backend needed to hide it.
+- Pairing (`createPairDirect`/`joinPairDirect` in `web/app.js`) writes
+  straight to Firestore instead of calling `createPair`/`joinPair`,
+  gated by two rules added specifically for this (`claimsOwnPair()` and
+  `joinsOpenSeat()` in `firestore.rules`, deviation **d** in the comment
+  at the top of that file) plus a new `/inviteCodes` lookup collection so
+  a joiner can resolve a shared code before they're a pair member. Both
+  paths are covered by `rules-tests/pairing.test.ts` on the emulator.
 
-Until all three are done, "Get an invite code" / "I have a code" will
-fail with a `functions/not-found`-style error — surfaced in the UI, not a
-silent hang.
+One thing you still need regardless of Blaze — TMDB itself requires a
+free account and key:
+
+1. Go to themoviedb.org → create an account → Settings → API → request a
+   key (choose "Developer" for a personal project).
+2. Copy the **"API Key (v3 auth)"** value — the short one, *not* the
+   longer "API Read Access Token" underneath it (that one's a Bearer
+   token meant for server-side use).
+3. Paste it into `web/tmdb-config.js`, replacing the placeholder string.
+
+Without that, genre pick and the rating deck will show a "TMDB rejected
+the API key" error — surfaced in the UI, not a silent hang. Pairing and
+everything else that only touches Firestore works without it.
+
+If you'd rather run the real Cloud Functions path instead (e.g. once you
+do have Blaze available, or you're testing the Android app against the
+same project), the callables are still in the repo and still deployable
+the normal way (`firebase deploy --only functions`, after
+`functions:secrets:set TMDB_ACCESS_TOKEN`) — this web client just doesn't
+depend on them.
 
 ## What this does so far
 

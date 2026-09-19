@@ -112,3 +112,32 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
     });
   });
 }
+
+/**
+ * Seed three unpaired users (no pairId yet) — the starting state the
+ * no-Blaze pairing flow (create/join, see firestore.rules deviation d) works
+ * from, as opposed to seed()'s already-fully-paired fixture.
+ */
+export async function seedUnpaired(env: RulesTestEnvironment): Promise<void> {
+  await env.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+
+    for (const [uid, name] of [
+      [ALI, "Ali"],
+      [SARA, "Sara"],
+      [STRANGER, "Stranger"],
+    ] as const) {
+      await setDoc(doc(db, "users", uid), {
+        uid,
+        name,
+        email: `${uid}@example.com`,
+        pairId: null,
+        onboardingComplete: false,
+        ratingCount: 0,
+        fcmTokens: [],
+        notificationSettings: { dailyMatch: true, partnerActivity: true, reminders: true },
+        timezone: "UTC",
+      });
+    }
+  });
+}

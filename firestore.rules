@@ -23,6 +23,17 @@ rules_version = '2';
 //      server-side.
 //   c. /users updates are field-whitelisted rather than blacklisted, so a new
 //      server-owned field cannot become client-writable by omission.
+//   d. Spark-plan (no Blaze) fallback: createPair/joinPair are Cloud
+//      Functions, and 2nd-gen functions require the Blaze plan to deploy at
+//      all — not just for their outbound TMDB calls. claimsOwnPair() and
+//      joinsOpenSeat() below let a client perform the same two writes those
+//      callables' Admin-SDK transactions would, gated tightly enough (only
+//      your own empty userB seat on an unexpired invite; only a pair that
+//      already, verifiably, lists your own uid) that the result is the same
+//      document shape either way. See also /inviteCodes: a new, narrowly
+//      scoped collection so a joiner can resolve a shared code to a pairId
+//      without first being a member of the pair it points to — cheaper than
+//      loosening /pairs' own read rule to cover pre-membership lookups.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -55,21 +66,33 @@ service cloud.firestore {
         && request.resource.data.onboardingComplete == false
         && request.resource.data.ratingCount == 0;
 
-      // Whitelist: everything else (pairId, onboardingComplete, ratingCount)
-      // is owned by Cloud Functions. 'name' and 'avatarUrl' are self-serve
+      // Whitelist: everything else (onboardingComplete, ratingCount) is
+      // owned by Cloud Functions. 'name' and 'avatarUrl' are self-serve
       // profile edits — see the profile screen — and onUserProfileUpdated
       // copies both onto the shared pair document so the partner can see them.
+      //
+      // 'pairId' has a second, narrower path (claimsOwnPair, below): the
+      // no-Blaze pairing flow (see /pairs' create/update) can't run
+      // createPair/joinPair's Admin-SDK transaction, so the client sets its
+      // own pairId directly — but only once, and only to a pair that
+      // already, verifiably, lists this uid. This is deliberately a
+      // fallback for the Spark-plan path, not a replacement for the
+      // Cloud-Functions one: either can set this field, and both produce
+      // the same document shape.
       allow update: if isSignedIn()
         && request.auth.uid == userId
-        && changedKeys().hasOnly([
-             'name',
-             'avatarUrl',
-             'fcmTokens',
-             'fcmTokenUpdatedAt',
-             'notificationSettings',
-             'lastActiveAt',
-             'timezone'
-           ]);
+        && (
+          changedKeys().hasOnly([
+            'name',
+            'avatarUrl',
+            'fcmTokens',
+            'fcmTokenUpdatedAt',
+            'notificationSettings',
+            'lastActiveAt',
+            'timezone'
+          ])
+          || claimsOwnPair()
+        );
 
       // Account deletion runs through a Cloud Function so the partner's pair is
       // cleaned up too.
@@ -81,16 +104,28 @@ service cloud.firestore {
       allow read: if isPairMember(resource.data);
 
       // Creating a pair: the creator must register themselves as userA, with no
-      // partner and no server-owned progress pre-filled.
+      // partner and no server-owned progress pre-filled. Written directly by
+      // the client on the no-Blaze path (see README §"Deviations" — createPair
+      // is unavailable without the Blaze plan) as well as by the createPair
+      // callable's Admin SDK, which bypasses rules entirely; either way the
+      // resulting document has to satisfy this same shape.
       allow create: if isSignedIn()
         && request.resource.data.userA == request.auth.uid
         && request.resource.data.userB == null
         && request.resource.data.aBothOnboarded == false
-        && request.resource.data.streakCount == 0;
+        && request.resource.data.streakCount == 0
+        && request.resource.data.status == 'waiting_partner'
+        && request.resource.data.inviteCode is string
+        && request.resource.data.inviteCodeExpiresAt is timestamp
+        && request.resource.data.inviteCodeExpiresAt > request.time;
 
-      // Joining, streaks, aBothOnboarded and lastMatchGeneratedAt are all
-      // server-owned — see joinPair / onRatingComplete / generateDailyMatch.
-      allow update: if false;
+      // Streaks, aBothOnboarded and lastMatchGeneratedAt stay server-owned —
+      // see onRatingComplete / generateDailyMatch — but joining itself has a
+      // second path now: joinsOpenSeat() below, the same no-Blaze fallback as
+      // /users' claimsOwnPair(). It can only ever claim an empty userB seat on
+      // an unexpired invite, writing exactly the fields joinPair's own
+      // transaction would.
+      allow update: if isSignedIn() && joinsOpenSeat();
       allow delete: if false;
 
       // ---------- pairs/{pairId}/ratings ----------
@@ -150,6 +185,27 @@ service cloud.firestore {
         // Either member can remove a film from the shared list.
         allow delete: if isPairMember(pairData(pairId));
       }
+    }
+
+    // ---------- inviteCodes ----------
+    // A minimal lookup so a joiner can resolve a shared code to a pairId
+    // before they're a member of that pair — see isPairMember() above, and
+    // deviation (d) at the top of this file. Document id is the invite code
+    // itself. This is deliberately permissive on create: it only ever maps a
+    // shareable code to a pairId and an expiry, never anything sensitive, and
+    // the pair it points at still enforces its own create/update rules
+    // regardless of what gets registered here — at worst a stale or
+    // fabricated entry points a joiner at a pair whose update then gets
+    // rejected because the seat's already taken or the invite's expired.
+    match /inviteCodes/{code} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.pairId is string
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time;
+
+      allow update, delete: if false;
     }
 
     // ---------- filmCache ----------
@@ -215,6 +271,42 @@ service cloud.firestore {
         && request.resource.data.watchedConfirmedAt is timestamp
         && request.resource.data.watchedConfirmedAt == request.time
         && request.resource.data.watchedConfirmedBy == request.auth.uid;
+    }
+
+    // ---------- No-Blaze fallback helpers (deviation d, above) ----------
+
+    // Lets a client set its own users/{uid}.pairId directly, exactly once,
+    // and only to a pair that already, verifiably, lists this uid as userA
+    // or userB — so this can only ever finish a create/join the client
+    // itself just performed (createPair's own pairs/create write, or a
+    // joinsOpenSeat() update below), never attach to an arbitrary pair.
+    // Mirrors the pairId + timezone + updatedAt write createPair/joinPair's
+    // Admin-SDK transaction makes, minus timezone/updatedAt — a self-serve
+    // 'timezone' edit is already whitelisted above, on its own, if needed.
+    function claimsOwnPair() {
+      let p = pairData(request.resource.data.pairId);
+      return changedKeys().hasOnly(['pairId'])
+        && resource.data.pairId == null
+        && request.resource.data.pairId is string
+        && (p.userA == request.auth.uid || p.userB == request.auth.uid);
+    }
+
+    // Claims an empty userB seat on an unexpired invite, writing exactly the
+    // fields joinPair's own transaction would (see
+    // functions/src/callable/joinPair.ts) so a pair document reads the same
+    // whether it was joined through the callable or this fallback.
+    function joinsOpenSeat() {
+      return changedKeys().hasOnly(['userB', 'status', 'joinedAt', 'userBName', 'userBAvatarUrl'])
+        && resource.data.userB == null
+        && resource.data.status == 'waiting_partner'
+        && resource.data.inviteCodeExpiresAt > request.time
+        && request.resource.data.userB == request.auth.uid
+        && request.resource.data.userB != resource.data.userA
+        && request.resource.data.status == 'both_rating'
+        && request.resource.data.joinedAt is timestamp
+        && request.resource.data.joinedAt == request.time
+        && request.resource.data.userBName is string
+        && (request.resource.data.userBAvatarUrl is string || request.resource.data.userBAvatarUrl == null);
     }
   }
 }

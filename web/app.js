@@ -9,29 +9,22 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore,
+  collection,
   doc,
   getDoc,
   setDoc,
   updateDoc,
   onSnapshot,
   serverTimestamp,
+  writeBatch,
+  Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import {
-  getFunctions,
-  httpsCallable,
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { fetchGenres, fetchOnboardingFilms } from "./tmdb.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-// Must match functions/src/index.ts's setGlobalOptions region exactly, or
-// the callable SDK builds a URL for a region nothing is deployed to.
-const functions = getFunctions(app, "europe-west1");
-const createPairFn = httpsCallable(functions, "createPair");
-const joinPairFn = httpsCallable(functions, "joinPair");
-const listGenresFn = httpsCallable(functions, "listGenres");
-const getOnboardingFilmsFn = httpsCallable(functions, "getOnboardingFilms");
 
 // Mirrors OnboardingConfig.kt — the client only decides UX (how many genres
 // before "Start rating" enables, how big a deck to ask for); the server is
@@ -108,9 +101,6 @@ function permissionHint(err) {
   }
   if (err?.code === "auth/unauthorized-domain") {
     return "This domain isn't in Firebase Auth's Authorized domains list yet — add it under Authentication → Settings → Authorized domains.";
-  }
-  if (err?.code === "functions/not-found" || err?.code === "not-found") {
-    return "This function isn't deployed to the project yet — see web/README.md for the functions deploy steps (Blaze plan required for 2nd-gen functions).";
   }
   return null;
 }
@@ -323,6 +313,7 @@ els.saveBtn.addEventListener("click", async () => {
 const ob = {
   step: "genres", // "genres" | "deck" | "exhausted"
   genres: [],
+  genreNamesById: new Map(),
   selected: new Set(),
   films: [],
   index: 0,
@@ -342,11 +333,11 @@ async function initOnboarding() {
   ob.step = "genres";
   renderOnboarding();
   try {
-    const result = await listGenresFn();
-    ob.genres = result.data.genres;
+    ob.genres = await fetchGenres();
+    ob.genreNamesById = new Map(ob.genres.map((g) => [g.id, g.name]));
     renderGenreChips();
   } catch (err) {
-    showStatus(els.obStatus, permissionHint(err) || `Couldn't load genres: ${err.message}`, true);
+    showStatus(els.obStatus, `Couldn't load genres: ${err.message}`, true);
   }
 }
 
@@ -400,18 +391,14 @@ els.startDeckBtn.addEventListener("click", async () => {
   els.startDeckBtn.disabled = true;
   els.startDeckBtn.textContent = "Loading…";
   try {
-    const result = await getOnboardingFilmsFn({
-      genreIds: [...ob.selected],
-      size: DECK_SIZE,
-    });
-    ob.films = result.data.films;
+    ob.films = await fetchOnboardingFilms([...ob.selected], DECK_SIZE, ob.genreNamesById);
     ob.index = 0;
     ob.recorded = latestUserData?.pairId ? latestUserData.ratingCount || 0 : draftCount();
     ob.step = "deck";
     renderOnboarding();
     renderDeckCard();
   } catch (err) {
-    showStatus(els.obStatus, permissionHint(err) || `Couldn't load films: ${err.message}`, true);
+    showStatus(els.obStatus, `Couldn't load films: ${err.message}`, true);
   } finally {
     els.startDeckBtn.disabled = false;
     els.startDeckBtn.textContent = "Start rating";
@@ -477,9 +464,8 @@ els.obExtendBtn.addEventListener("click", async () => {
   showStatus(els.obStatus, "", false);
   els.obExtendBtn.disabled = true;
   try {
-    const result = await getOnboardingFilmsFn({ genreIds: [...ob.selected], size: DECK_SIZE });
     const seen = new Set(ob.films.map((f) => f.filmId));
-    const fresh = result.data.films.filter((f) => !seen.has(f.filmId));
+    const fresh = await fetchOnboardingFilms([...ob.selected], DECK_SIZE, ob.genreNamesById, seen);
     if (fresh.length === 0) {
       showStatus(els.obStatus, "No new films for these genres right now.", true);
       return;
@@ -489,7 +475,7 @@ els.obExtendBtn.addEventListener("click", async () => {
     renderOnboarding();
     renderDeckCard();
   } catch (err) {
-    showStatus(els.obStatus, permissionHint(err) || `Couldn't load more films: ${err.message}`, true);
+    showStatus(els.obStatus, `Couldn't load more films: ${err.message}`, true);
   } finally {
     els.obExtendBtn.disabled = false;
   }
@@ -510,15 +496,124 @@ function showPairingView(view) {
   els.pairingDone.hidden = view !== "done";
 }
 
+// Mirrors functions/src/lib/pairs.ts's generateInviteCode/INVITE_CODE_TTL_MS —
+// createPair/joinPair are Cloud Functions, which require the Blaze plan to
+// deploy at all (see firestore.rules deviation d). createPairDirect and
+// joinPairDirect below do the same two writes those callables' Admin-SDK
+// transactions would, as direct client writes gated by claimsOwnPair() and
+// joinsOpenSeat().
+const INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1
+const INVITE_CODE_LENGTH = 6;
+const INVITE_CODE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, ALI-73
+
+function generateInviteCode() {
+  let code = "";
+  for (let i = 0; i < INVITE_CODE_LENGTH; i += 1) {
+    code += INVITE_CODE_ALPHABET[Math.floor(Math.random() * INVITE_CODE_ALPHABET.length)];
+  }
+  return `MVMT-${code}`;
+}
+
+/**
+ * Creates the pair + its /inviteCodes lookup entry in one batch, then claims
+ * the creator's own users/{uid}.pairId as a second write — claimsOwnPair()
+ * requires the pair to already exist, so that claim genuinely can't be part
+ * of the same batch. Retries on the (unlikely) invite-code collision, same
+ * as createPair.ts: a collision shows up here as the inviteCodes write being
+ * evaluated as an update (the doc already exists) against a rule that never
+ * allows update, so it fails with permission-denied.
+ */
+async function createPairDirect(uid, timezone) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const inviteCode = generateInviteCode();
+    const pairRef = doc(collection(db, "pairs"));
+    const inviteCodeExpiresAt = Timestamp.fromMillis(Date.now() + INVITE_CODE_TTL_MS);
+
+    const batch = writeBatch(db);
+    batch.set(pairRef, {
+      userA: uid,
+      userB: null,
+      inviteCode,
+      inviteCodeExpiresAt,
+      status: "waiting_partner",
+      createdAt: serverTimestamp(),
+      aBothOnboarded: false,
+      streakCount: 0,
+      lastMatchGeneratedAt: null,
+      lastWatchAt: null,
+      timezone,
+    });
+    batch.set(doc(db, "inviteCodes", inviteCode), {
+      pairId: pairRef.id,
+      expiresAt: inviteCodeExpiresAt,
+    });
+
+    try {
+      await batch.commit();
+    } catch (err) {
+      if (err?.code === "permission-denied") continue;
+      throw err;
+    }
+
+    await updateDoc(doc(db, "users", uid), { pairId: pairRef.id });
+    return { pairId: pairRef.id, inviteCode };
+  }
+  throw new Error("Could not allocate an invite code. Try again.");
+}
+
+/**
+ * Resolves the code via /inviteCodes, claims the open seat, then claims the
+ * joiner's own pairId — the same facts joinPair's transaction establishes
+ * atomically, as three separate client writes. The pre-checks below exist
+ * for a friendly error message; joinsOpenSeat() re-checks all of this
+ * server-side regardless, so a race with someone else joining first is still
+ * safe even though these reads are not.
+ */
+async function joinPairDirect(uid, inviteCode, name, avatarUrl) {
+  const codeSnap = await getDoc(doc(db, "inviteCodes", inviteCode));
+  if (!codeSnap.exists()) throw new Error("That code doesn't match any invite.");
+
+  const { pairId } = codeSnap.data();
+  const pairSnap = await getDoc(doc(db, "pairs", pairId));
+  if (!pairSnap.exists()) throw new Error("That code doesn't match any invite.");
+
+  const pair = pairSnap.data();
+  if (pair.userA === uid) throw new Error("That's your own invite code.");
+  if (pair.userB !== null) throw new Error("This invite has already been used.");
+  if (pair.inviteCodeExpiresAt.toMillis() <= Date.now()) {
+    throw new Error("This invite code has expired.");
+  }
+
+  try {
+    await updateDoc(doc(db, "pairs", pairId), {
+      userB: uid,
+      status: "both_rating",
+      joinedAt: serverTimestamp(),
+      userBName: name,
+      userBAvatarUrl: avatarUrl,
+    });
+  } catch (err) {
+    if (err?.code === "permission-denied") {
+      throw new Error("This invite has already been used.");
+    }
+    throw err;
+  }
+
+  await updateDoc(doc(db, "users", uid), { pairId });
+  return { pairId, partnerUid: pair.userA };
+}
+
 els.getInviteBtn.addEventListener("click", async () => {
   showStatus(els.pairingStatus, "", false);
   els.getInviteBtn.disabled = true;
   els.getInviteBtn.textContent = "Creating…";
   try {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const result = await createPairFn({ timezone });
-    pendingInviteCode = result.data.inviteCode;
-    await flushDraftIntoPair(result.data.pairId, auth.currentUser.uid);
+    const uid = auth.currentUser.uid;
+    const timezone =
+      latestUserData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const { pairId, inviteCode } = await createPairDirect(uid, timezone);
+    pendingInviteCode = inviteCode;
+    await flushDraftIntoPair(pairId, uid);
     els.inviteCodeDisplay.textContent = pendingInviteCode;
     showPairingView("invite");
   } catch (err) {
@@ -548,13 +643,18 @@ els.joinBtn.addEventListener("click", async () => {
   els.joinBtn.disabled = true;
   els.joinBtn.textContent = "Joining…";
   try {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const result = await joinPairFn({ inviteCode, timezone });
-    await flushDraftIntoPair(result.data.pairId, auth.currentUser.uid);
+    const user = auth.currentUser;
+    const { pairId } = await joinPairDirect(
+      user.uid,
+      inviteCode,
+      latestUserData?.name || user.displayName || "",
+      user.photoURL || null
+    );
+    await flushDraftIntoPair(pairId, user.uid);
     els.partnerText.textContent = "You're paired up.";
     showPairingView("done");
   } catch (err) {
-    showStatus(els.pairingStatus, permissionHint(err) || `Couldn't join: ${err.message}`, true);
+    showStatus(els.pairingStatus, permissionHint(err) || err.message, true);
   } finally {
     els.joinBtn.disabled = false;
     els.joinBtn.textContent = "Join";

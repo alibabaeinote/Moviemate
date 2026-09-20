@@ -12,6 +12,9 @@ import {
   collection,
   doc,
   getDoc,
+  limit,
+  orderBy,
+  query,
   setDoc,
   updateDoc,
   onSnapshot,
@@ -20,7 +23,8 @@ import {
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { fetchGenres, fetchOnboardingFilms } from "./tmdb.js";
+import { fetchFilmById, fetchGenres, fetchOnboardingFilms } from "./tmdb.js";
+import { advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRatingCount } from "./match.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -82,7 +86,34 @@ const els = {
   partnerText: document.getElementById("partnerText"),
   pairingStatus: document.getElementById("pairingStatus"),
 
-  matchPlaceholder: document.getElementById("matchPlaceholder"),
+  match: document.getElementById("match"),
+  matchWaiting: document.getElementById("matchWaiting"),
+  matchWaitingText: document.getElementById("matchWaitingText"),
+  matchNotYet: document.getElementById("matchNotYet"),
+  findMatchBtn: document.getElementById("findMatchBtn"),
+  matchNoMatches: document.getElementById("matchNoMatches"),
+  matchNoMatchesReason: document.getElementById("matchNoMatchesReason"),
+  matchSuggested: document.getElementById("matchSuggested"),
+  matchScoreLabel: document.getElementById("matchScoreLabel"),
+  matchPoster: document.getElementById("matchPoster"),
+  matchFilmTitle: document.getElementById("matchFilmTitle"),
+  matchReason: document.getElementById("matchReason"),
+  matchCommitBtn: document.getElementById("matchCommitBtn"),
+  matchWaitingOnPartner: document.getElementById("matchWaitingOnPartner"),
+  matchConfirmed: document.getElementById("matchConfirmed"),
+  confirmedPoster: document.getElementById("confirmedPoster"),
+  confirmedFilmTitle: document.getElementById("confirmedFilmTitle"),
+  markWatchedBtn: document.getElementById("markWatchedBtn"),
+  matchWatchedView: document.getElementById("matchWatchedView"),
+  streakText: document.getElementById("streakText"),
+  matchRateDialWrap: document.getElementById("matchRateDialWrap"),
+  matchRateScore: document.getElementById("matchRateScore"),
+  matchRateScoreLabel: document.getElementById("matchRateScoreLabel"),
+  matchRateDial: document.getElementById("matchRateDial"),
+  matchRateBtn: document.getElementById("matchRateBtn"),
+  matchRatedDone: document.getElementById("matchRatedDone"),
+  matchRetryBtn: document.getElementById("matchRetryBtn"),
+  matchStatus: document.getElementById("matchStatus"),
 };
 
 let unsubscribeUserDoc = null;
@@ -196,16 +227,22 @@ function renderAvatar(name, photoUrl) {
 function showSection(name) {
   els.onboarding.hidden = name !== "onboarding";
   els.pairing.hidden = name !== "pairing";
-  els.matchPlaceholder.hidden = name !== "match";
+  els.match.hidden = name !== "match";
 }
 
-function decideInitialSection(userData, pairData) {
-  const isPaired = !!userData.pairId && !!pairData;
-  const onboardingComplete = !!userData.onboardingComplete;
-  const bothOnboarded = !!pairData?.aBothOnboarded;
-  if (isPaired && onboardingComplete) return "match";
-  if (bothOnboarded) return "match";
-  if (isPaired) return "onboarding";
+/**
+ * Whether THIS user is done onboarding, checked live against their actual
+ * rating history rather than trusting users.onboardingComplete — that field
+ * is only ever set by the (Blaze-only) onRatingComplete trigger, so on the
+ * no-Blaze path it would stay false forever and strand a paired user back in
+ * onboarding on every visit. See web/match.js and the README's "no-Blaze"
+ * section.
+ */
+async function decideInitialSection(userData, pairId) {
+  if (pairId) {
+    const myCount = await onboardingRatingCount(db, pairId, auth.currentUser.uid);
+    return myCount >= RATING_TARGET ? "match" : "onboarding";
+  }
   if (draftCount() >= RATING_TARGET) return "pairing";
   return "onboarding";
 }
@@ -213,17 +250,11 @@ function decideInitialSection(userData, pairData) {
 async function maybeDecideInitialRoute() {
   if (routeDecided || !latestUserData) return;
   const pairId = latestUserData.pairId;
-  let pairData = null;
-  if (pairId) {
-    // One-time read, not a listener — this is a launch-time decision, not
-    // something that should keep re-firing.
-    const snap = await getDoc(doc(db, "pairs", pairId));
-    pairData = snap.exists() ? snap.data() : null;
-  }
   routeDecided = true;
-  const section = decideInitialSection(latestUserData, pairData);
+  const section = await decideInitialSection(latestUserData, pairId);
   showSection(section);
   if (section === "onboarding") initOnboarding();
+  if (section === "match") goToMatch();
 }
 
 /** Called by the onboarding/pairing screens themselves once they're done. */
@@ -231,8 +262,13 @@ function goToPairing() {
   showSection("pairing");
   showPairingView("choice");
 }
-function goToMatch() {
+
+async function goToMatch() {
   showSection("match");
+  const pairId = latestUserData?.pairId;
+  if (!pairId) return;
+  const snap = await getDoc(doc(db, "pairs", pairId));
+  if (snap.exists()) initMatchSection(pairId, snap.data());
 }
 
 function watchUserDoc(uid) {
@@ -259,6 +295,8 @@ onAuthStateChanged(auth, (user) => {
     routeDecided = false;
     latestUserData = null;
     if (unsubscribeUserDoc) unsubscribeUserDoc();
+    if (mtUnsubPair) mtUnsubPair();
+    if (mtUnsubMatch) mtUnsubMatch();
     return;
   }
   els.signedOut.hidden = true;
@@ -393,7 +431,9 @@ els.startDeckBtn.addEventListener("click", async () => {
   try {
     ob.films = await fetchOnboardingFilms([...ob.selected], DECK_SIZE, ob.genreNamesById);
     ob.index = 0;
-    ob.recorded = latestUserData?.pairId ? latestUserData.ratingCount || 0 : draftCount();
+    ob.recorded = latestUserData?.pairId
+      ? await onboardingRatingCount(db, latestUserData.pairId, auth.currentUser.uid)
+      : draftCount();
     ob.step = "deck";
     renderOnboarding();
     renderDeckCard();
@@ -658,5 +698,301 @@ els.joinBtn.addEventListener("click", async () => {
   } finally {
     els.joinBtn.disabled = false;
     els.joinBtn.textContent = "Join";
+  }
+});
+
+/* ============================================================
+   MATCH — the daily loop. Mirrors MatchPhase.kt's state hierarchy, scoped
+   to what this pass builds: NotYet, WaitingForPartner, NoMatches, Suggested,
+   Confirmed (both committed) and Watched. NOT built yet, same as the
+   Android app's more advanced states this omits on purpose: the 3-up
+   reject/fallback sequence and the schedule-watch time picker — real next
+   slices, not skipped by accident (see README).
+
+   Generation itself is a no-Blaze fallback (firestore.rules deviation e):
+   there's no scheduled function to run it automatically, so it's a client
+   action — "Find tonight's movie" — rather than something that's just
+   there at 9am. web/match.js does the actual work (build taste profiles,
+   score a TMDB candidate pool, write the match).
+   ============================================================ */
+
+let mtUnsubPair = null;
+let mtUnsubMatch = null;
+let mtRenderToken = 0;
+const mt = { pairId: null, pair: null, match: null, matchId: null };
+const filmDetailsCache = new Map();
+
+async function getFilmDetails(filmId) {
+  if (!filmId) return null;
+  if (filmDetailsCache.has(filmId)) return filmDetailsCache.get(filmId);
+  const film = await fetchFilmById(filmId);
+  filmDetailsCache.set(filmId, film);
+  return film;
+}
+
+function showMatchView(name) {
+  els.matchWaiting.hidden = name !== "waiting";
+  els.matchNotYet.hidden = name !== "notYet";
+  els.matchNoMatches.hidden = name !== "noMatches";
+  els.matchSuggested.hidden = name !== "suggested";
+  els.matchConfirmed.hidden = name !== "confirmed";
+  els.matchWatchedView.hidden = name !== "watched";
+}
+
+function setPoster(el, film) {
+  if (film?.posterPath) {
+    el.style.backgroundImage = `url(https://image.tmdb.org/t/p/w342${film.posterPath})`;
+    el.textContent = "";
+  } else {
+    el.style.backgroundImage = "none";
+    el.textContent = film?.title || "";
+  }
+}
+
+async function renderSuggestedView(match, mySide) {
+  els.matchScoreLabel.textContent = `${match.score}% shared taste`;
+  els.matchReason.textContent = match.reason;
+  const film = await getFilmDetails(match.filmId);
+  els.matchFilmTitle.textContent = film?.title || "Tonight's pick";
+  setPoster(els.matchPoster, film);
+
+  const iCommitted = !!match.commitStatus[mySide];
+  els.matchCommitBtn.hidden = iCommitted;
+  els.matchWaitingOnPartner.hidden = !iCommitted;
+}
+
+async function renderConfirmedView(match) {
+  const film = await getFilmDetails(match.filmId);
+  els.confirmedFilmTitle.textContent = film?.title || "Tonight's pick";
+  setPoster(els.confirmedPoster, film);
+}
+
+async function renderWatchedView(match) {
+  els.streakText.textContent = mt.pair.streakCount
+    ? `${mt.pair.streakCount} day streak`
+    : "Watched.";
+
+  const uid = auth.currentUser.uid;
+  const ratingSnap = await getDoc(doc(db, "pairs", mt.pairId, "ratings", `${uid}_${match.filmId}`));
+  const alreadyRated = ratingSnap.exists();
+  els.matchRateDialWrap.hidden = alreadyRated;
+  els.matchRateBtn.hidden = alreadyRated;
+  els.matchRatedDone.hidden = !alreadyRated;
+}
+
+/**
+ * Mirrors onMatchUpdate's handleMutualCommit: a film both partners committed
+ * to belongs on the shared watchlist. The watchlist doc id is the match id
+ * (not an auto-id) specifically so this is idempotent — both partners'
+ * clients reach this branch when the second commit's snapshot propagates,
+ * and the second create attempt lands on an existing doc, gets evaluated as
+ * an update against a rule that only ever allows a commitStatus-only change,
+ * and fails harmlessly.
+ */
+async function ensurePromotedToWatchlist(match, matchId) {
+  try {
+    await setDoc(doc(db, "pairs", mt.pairId, "watchlist", matchId), {
+      filmId: match.filmId,
+      addedBy: auth.currentUser.uid,
+      addedAt: serverTimestamp(),
+      source: "match",
+      status: "waiting",
+      commitStatus: match.commitStatus,
+      watchedAt: null,
+      mutualScore: null,
+    });
+  } catch {
+    // Already promoted, by this client or the partner's — expected and safe.
+  }
+}
+
+async function renderMatchSection() {
+  if (!mt.pair) return;
+  const token = ++mtRenderToken;
+  const ready = await isBothOnboarded(db, mt.pairId, mt.pair);
+  if (token !== mtRenderToken) return; // a newer render started while this awaited
+
+  if (!ready) {
+    els.matchWaitingText.textContent = "Waiting for your partner to finish rating their films.";
+    showMatchView("waiting");
+    els.matchRetryBtn.hidden = true;
+    return;
+  }
+
+  const match = mt.match;
+  if (!match) {
+    showMatchView("notYet");
+    els.matchRetryBtn.hidden = true;
+    return;
+  }
+
+  if (match.watchedConfirmedAt) {
+    showMatchView("watched");
+    renderWatchedView(match);
+    els.matchRetryBtn.hidden = !canGenerateAgain(mt.pair);
+    return;
+  }
+
+  els.matchRetryBtn.hidden = true;
+
+  if (match.commitStatus.userA && match.commitStatus.userB) {
+    showMatchView("confirmed");
+    renderConfirmedView(match);
+    ensurePromotedToWatchlist(match, mt.matchId);
+    return;
+  }
+
+  if (!match.filmId) {
+    els.matchNoMatchesReason.textContent =
+      match.noMatchesReason || "Nothing scored high enough for both of you today.";
+    showMatchView("noMatches");
+    els.matchRetryBtn.hidden = !canGenerateAgain(mt.pair);
+    return;
+  }
+
+  const uid = auth.currentUser.uid;
+  const mySide = mt.pair.userA === uid ? "userA" : "userB";
+  showMatchView("suggested");
+  renderSuggestedView(match, mySide);
+}
+
+/**
+ * Mirrors createsTodaysMatch()'s 20h gate client-side, purely so the "Find
+ * another match" retry button (shown once today's match reaches a terminal
+ * state — watched, or no match found) doesn't invite a write the rules will
+ * just reject. The rule is still the actual authority; this is UX only.
+ */
+function canGenerateAgain(pair) {
+  if (!pair?.lastMatchGeneratedAt) return true;
+  const last = pair.lastMatchGeneratedAt.toDate
+    ? pair.lastMatchGeneratedAt.toDate()
+    : new Date(pair.lastMatchGeneratedAt);
+  return Date.now() - last.getTime() > 20 * 60 * 60 * 1000;
+}
+
+function initMatchSection(pairId, pair) {
+  if (mtUnsubPair) mtUnsubPair();
+  if (mtUnsubMatch) mtUnsubMatch();
+
+  mt.pairId = pairId;
+  mt.pair = pair;
+  mt.match = null;
+  mt.matchId = null;
+  showStatus(els.matchStatus, "", false);
+
+  mtUnsubPair = onSnapshot(
+    doc(db, "pairs", pairId),
+    (snap) => {
+      if (!snap.exists()) return;
+      mt.pair = snap.data();
+      renderMatchSection();
+    },
+    (err) => showStatus(els.matchStatus, permissionHint(err) || err.message, true)
+  );
+
+  const latestMatchQuery = query(
+    collection(db, "pairs", pairId, "matches"),
+    orderBy("suggestedAt", "desc"),
+    limit(1)
+  );
+  mtUnsubMatch = onSnapshot(
+    latestMatchQuery,
+    (snap) => {
+      const matchDoc = snap.docs[0];
+      mt.match = matchDoc ? matchDoc.data() : null;
+      mt.matchId = matchDoc ? matchDoc.id : null;
+      renderMatchSection();
+    },
+    (err) => showStatus(els.matchStatus, permissionHint(err) || err.message, true)
+  );
+}
+
+/** Shared by the first-time "Find tonight's movie" button and the "Find another match" retry. */
+async function runFindMatch(button, busyLabel, restLabel) {
+  if (!mt.pairId || !mt.pair) return;
+  showStatus(els.matchStatus, "", false);
+  button.disabled = true;
+  button.textContent = busyLabel;
+  try {
+    await generateTodaysMatch(db, mt.pairId, mt.pair);
+    // The matches onSnapshot listener re-renders once the write lands.
+  } catch (err) {
+    showStatus(els.matchStatus, permissionHint(err) || `Couldn't find a match: ${err.message}`, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = restLabel;
+  }
+}
+
+els.findMatchBtn.addEventListener("click", () =>
+  runFindMatch(els.findMatchBtn, "Finding something…", "Find tonight's movie")
+);
+els.matchRetryBtn.addEventListener("click", () =>
+  runFindMatch(els.matchRetryBtn, "Finding something…", "Find another match")
+);
+
+els.matchCommitBtn.addEventListener("click", async () => {
+  if (!mt.match || !mt.matchId || !mt.pair) return;
+  const uid = auth.currentUser.uid;
+  const mySide = mt.pair.userA === uid ? "userA" : "userB";
+  showStatus(els.matchStatus, "", false);
+  els.matchCommitBtn.disabled = true;
+  try {
+    await updateDoc(doc(db, "pairs", mt.pairId, "matches", mt.matchId), {
+      [`commitStatus.${mySide}`]: true,
+    });
+  } catch (err) {
+    showStatus(els.matchStatus, permissionHint(err) || `Couldn't commit: ${err.message}`, true);
+  } finally {
+    els.matchCommitBtn.disabled = false;
+  }
+});
+
+els.markWatchedBtn.addEventListener("click", async () => {
+  if (!mt.matchId || !mt.pair || !mt.pairId) return;
+  const uid = auth.currentUser.uid;
+  showStatus(els.matchStatus, "", false);
+  els.markWatchedBtn.disabled = true;
+  try {
+    await updateDoc(doc(db, "pairs", mt.pairId, "matches", mt.matchId), {
+      watchedConfirmedAt: serverTimestamp(),
+      watchedConfirmedBy: uid,
+    });
+    await advancePairStreak(db, mt.pairId, mt.pair);
+  } catch (err) {
+    showStatus(els.matchStatus, permissionHint(err) || `Couldn't mark it watched: ${err.message}`, true);
+  } finally {
+    els.markWatchedBtn.disabled = false;
+  }
+});
+
+let matchRateScoreValue = DEFAULT_SCORE;
+els.matchRateDial.addEventListener("input", () => {
+  matchRateScoreValue = Number(els.matchRateDial.value);
+  els.matchRateScore.textContent = String(matchRateScoreValue);
+  els.matchRateScoreLabel.textContent = dialLabel(matchRateScoreValue);
+});
+
+els.matchRateBtn.addEventListener("click", async () => {
+  if (!mt.match || !mt.pairId) return;
+  const uid = auth.currentUser.uid;
+  showStatus(els.matchStatus, "", false);
+  els.matchRateBtn.disabled = true;
+  try {
+    await setDoc(doc(db, "pairs", mt.pairId, "ratings", `${uid}_${mt.match.filmId}`), {
+      userId: uid,
+      filmId: mt.match.filmId,
+      score: matchRateScoreValue,
+      isInitialOnboarding: false,
+      reactionEmoji: null,
+      ratedAt: serverTimestamp(),
+    });
+    els.matchRateDialWrap.hidden = true;
+    els.matchRateBtn.hidden = true;
+    els.matchRatedDone.hidden = false;
+  } catch (err) {
+    showStatus(els.matchStatus, permissionHint(err) || `Couldn't save that rating: ${err.message}`, true);
+  } finally {
+    els.matchRateBtn.disabled = false;
   }
 });

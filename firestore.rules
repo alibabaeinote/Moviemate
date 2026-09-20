@@ -34,6 +34,18 @@ rules_version = '2';
 //      scoped collection so a joiner can resolve a shared code to a pairId
 //      without first being a member of the pair it points to — cheaper than
 //      loosening /pairs' own read rule to cover pre-membership lookups.
+//   e. Same no-Blaze fallback, for the daily match: generateDailyMatch and
+//      onMatchUpdate are a scheduled function and a Firestore trigger, both
+//      Cloud Functions. createsTodaysMatch() lets a pair member write today's
+//      match directly (client-computed — see web/match-engine.js — rather
+//      than server-verified, an acceptable trust level for a two-person app),
+//      gated to once per ~20h. updatesLastMatchGeneratedAt() and
+//      advancesStreak() cover the two pair-document side effects that would
+//      otherwise only ever happen inside onMatchUpdate. Deliberately NOT
+//      touched: matches' own commit/watched fields already had client write
+//      paths (commitsOnlyForSelf, confirmsWatchedOnly) from before this app
+//      had a server at all, so the mutual-commit and watched-confirmation
+//      steps need no new rule surface — only generation and streak do.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -125,7 +137,11 @@ service cloud.firestore {
       // /users' claimsOwnPair(). It can only ever claim an empty userB seat on
       // an unexpired invite, writing exactly the fields joinPair's own
       // transaction would.
-      allow update: if isSignedIn() && joinsOpenSeat();
+      allow update: if isSignedIn()
+        && (
+          joinsOpenSeat()
+          || (isPairMember(resource.data) && (updatesLastMatchGeneratedAt() || advancesStreak()))
+        );
       allow delete: if false;
 
       // ---------- pairs/{pairId}/ratings ----------
@@ -154,8 +170,9 @@ service cloud.firestore {
       match /matches/{matchId} {
         allow read: if isPairMember(pairData(pairId));
 
-        // Matches are produced by generateDailyMatch only.
-        allow create: if false;
+        // Matches are produced by generateDailyMatch's Admin SDK — or, on the
+        // no-Blaze path, by createsTodaysMatch() below.
+        allow create: if isSignedIn() && createsTodaysMatch(pairId);
 
         // A member may flip their own commit flag, or record the manual
         // "we watched it" confirmation. bothConfirmedAt, score, status and
@@ -307,6 +324,60 @@ service cloud.firestore {
         && request.resource.data.joinedAt == request.time
         && request.resource.data.userBName is string
         && (request.resource.data.userBAvatarUrl is string || request.resource.data.userBAvatarUrl == null);
+    }
+
+    // No-Blaze fallback for generateDailyMatch: a pair member may write
+    // today's match directly, once the pair has gone quiet for a while.
+    // 20h rather than "a new local day" — the real per-timezone 9am rule
+    // needs a scheduled function to evaluate hourly; this is the closest a
+    // security rule (no clock of its own beyond request.time) can get
+    // without one. The score/reason values themselves are trusted from the
+    // client (web/match-engine.js runs the same algorithm as
+    // domain/scoring.ts, minus the country signal — see deviation e above)
+    // rather than recomputed here, the same trust level createPair/joinPair's
+    // fallback already accepts for a two-person app.
+    function createsTodaysMatch(pairId) {
+      let p = pairData(pairId);
+      return isPairMember(p)
+        && (p.lastMatchGeneratedAt == null || p.lastMatchGeneratedAt < request.time - duration.value(20, 'h'))
+        && request.resource.data.filmId is string
+        && request.resource.data.reason is string
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 100
+        && request.resource.data.status in ['suggested', 'dismissed']
+        && request.resource.data.attemptNumber == 1
+        && request.resource.data.suggestedAt is timestamp
+        && request.resource.data.suggestedAt == request.time
+        && request.resource.data.commitStatus.userA == false
+        && request.resource.data.commitStatus.userB == false
+        && request.resource.data.bothConfirmedAt == null
+        && request.resource.data.watchedConfirmedAt == null
+        && request.resource.data.watchedConfirmedBy == null;
+    }
+
+    // The other half of createsTodaysMatch: the client stamps this on the
+    // /pairs doc in the same batch as the match create, so the 20h gate
+    // above has something to check next time.
+    function updatesLastMatchGeneratedAt() {
+      return changedKeys().hasOnly(['lastMatchGeneratedAt'])
+        && request.resource.data.lastMatchGeneratedAt is timestamp
+        && request.resource.data.lastMatchGeneratedAt == request.time;
+    }
+
+    // No-Blaze fallback for onMatchUpdate's updateStreak: whoever just
+    // confirmed "we watched it" (already permitted by confirmsWatchedOnly,
+    // unchanged) follows up with this write, having run domain/streak.ts's
+    // same pure advanceStreak() logic client-side. Pinned to a step of
+    // exactly +1 or a reset to 1 so a client cannot simply declare a
+    // streak of 999.
+    function advancesStreak() {
+      return changedKeys().hasOnly(['streakCount', 'lastWatchAt'])
+        && request.resource.data.lastWatchAt is timestamp
+        && (
+          request.resource.data.streakCount == resource.data.streakCount + 1
+          || request.resource.data.streakCount == 1
+        );
     }
   }
 }

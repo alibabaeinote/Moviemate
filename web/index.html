@@ -109,9 +109,53 @@
     <div class="status" id="pairingStatus"></div>
   </div>
 
-  <div class="card" id="matchPlaceholder" hidden>
-    <h2>You're all set</h2>
-    <p class="sub">Onboarding's done and you're paired. The daily Match screen isn't built for web yet — it's the next slice.</p>
+  <div class="card" id="match" hidden>
+    <div id="matchWaiting">
+      <h2>Almost there</h2>
+      <p class="sub" id="matchWaitingText">Waiting for your partner to finish rating their films.</p>
+    </div>
+
+    <div id="matchNotYet" hidden>
+      <h2>Tonight's movie</h2>
+      <p class="sub">You're both ready. Find something to watch together tonight.</p>
+      <button class="btn-primary" id="findMatchBtn" type="button">Find tonight's movie</button>
+    </div>
+
+    <div id="matchNoMatches" hidden>
+      <h2>No pick today</h2>
+      <p class="sub" id="matchNoMatchesReason"></p>
+    </div>
+
+    <div id="matchSuggested" hidden>
+      <p class="sub" id="matchScoreLabel"></p>
+      <div class="poster" id="matchPoster"></div>
+      <div class="film-title" id="matchFilmTitle"></div>
+      <p class="sub" id="matchReason"></p>
+      <button class="btn-primary" id="matchCommitBtn" type="button">I'm in</button>
+      <p class="sub" id="matchWaitingOnPartner" hidden>You're in — waiting on your partner.</p>
+    </div>
+
+    <div id="matchConfirmed" hidden>
+      <div class="poster" id="confirmedPoster"></div>
+      <div class="film-title" id="confirmedFilmTitle"></div>
+      <p class="sub">You're both in. Watch it together, then mark it watched.</p>
+      <button class="btn-primary" id="markWatchedBtn" type="button">We watched it</button>
+    </div>
+
+    <div id="matchWatchedView" hidden>
+      <h2 id="matchWatchedHeading">Nice!</h2>
+      <p class="sub" id="streakText"></p>
+      <div class="dial" id="matchRateDialWrap">
+        <div class="dial-score" id="matchRateScore">50</div>
+        <div class="sub" id="matchRateScoreLabel">It was fine</div>
+        <input type="range" min="0" max="100" value="50" id="matchRateDial" />
+      </div>
+      <button class="btn-primary" id="matchRateBtn" type="button">Rate it</button>
+      <p class="sub" id="matchRatedDone" hidden>Rated. See you tomorrow for the next one.</p>
+    </div>
+
+    <button class="btn-secondary" id="matchRetryBtn" type="button" hidden>Find another match</button>
+    <div class="status" id="matchStatus"></div>
   </div>
 
   <script type="module" src="app.js"></script>

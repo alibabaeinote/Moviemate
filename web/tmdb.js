@@ -65,6 +65,7 @@ function toDeckFilm(movie, genreNamesById) {
     posterPath: movie.poster_path,
     genres: (movie.genre_ids || []).map((id) => genreNamesById.get(id)).filter(Boolean),
     releaseYear: movie.release_date ? Number(movie.release_date.slice(0, 4)) : 0,
+    tmdbRating: movie.vote_average || 0,
   };
 }
 
@@ -101,4 +102,86 @@ export async function fetchOnboardingFilms(genreIds, size, genreNamesById, exclu
   return interleave(buckets)
     .slice(0, size)
     .map((movie) => toDeckFilm(movie, genreNamesById));
+}
+
+/**
+ * Full detail for a set of films, by id — used both to rebuild a taste
+ * profile from someone's rating history and to display a match's title and
+ * poster (the match doc itself only stores filmId/score/reason; there's no
+ * filmCache write on this path to resolve those from). Unlike a discover
+ * result, /movie/{id} returns genres as {id, name} objects directly, so no
+ * genre-map lookup is needed here. Returns a Map so callers can look up by
+ * filmId in O(1).
+ */
+export async function fetchFilmsByIds(filmIds) {
+  const unique = [...new Set(filmIds)];
+  const entries = await Promise.all(
+    unique.map(async (id) => {
+      try {
+        const movie = await tmdbGet(`/movie/${id}`, {});
+        return [
+          id,
+          {
+            filmId: id,
+            title: movie.title,
+            posterPath: movie.poster_path,
+            genres: (movie.genres || []).map((g) => g.name),
+            releaseYear: movie.release_date ? Number(movie.release_date.slice(0, 4)) : 0,
+            tmdbRating: movie.vote_average || 0,
+          },
+        ];
+      } catch {
+        // A film that has vanished from TMDB (rare) just drops out of the
+        // profile rather than failing the whole build.
+        return null;
+      }
+    })
+  );
+  return new Map(entries.filter(Boolean));
+}
+
+/** Convenience for a single film — used to display a match card's poster/title. */
+export async function fetchFilmById(filmId) {
+  const films = await fetchFilmsByIds([filmId]);
+  return films.get(filmId) || null;
+}
+
+/**
+ * A broad, popularity-sorted candidate pool for the daily match — unlike the
+ * onboarding deck, not biased toward any particular genre, mirroring
+ * matchService.ts's buildCandidatePool (the taste-profile scoring is what
+ * biases the result, not the pool itself).
+ */
+export async function fetchMatchCandidates(size, excludeIds = new Set()) {
+  const pool = new Map();
+  const pages = Math.max(1, Math.ceil(size / 20));
+
+  for (let page = 1; page <= pages; page += 1) {
+    const data = await tmdbGet("/discover/movie", {
+      sort_by: "popularity.desc",
+      "vote_count.gte": MIN_VOTE_COUNT,
+      page,
+    });
+    const genreMap = await genreNamesCache();
+    for (const movie of data.results || []) {
+      const id = String(movie.id);
+      if (excludeIds.has(id) || pool.has(id)) continue;
+      if (!movie.genre_ids || movie.genre_ids.length === 0) continue;
+      if (!movie.release_date) continue;
+      pool.set(id, toDeckFilm(movie, genreMap));
+    }
+    if (pool.size >= size) break;
+    if (page >= (data.total_pages || 1)) break;
+  }
+
+  return [...pool.values()];
+}
+
+let cachedGenreMap = null;
+async function genreNamesCache() {
+  if (!cachedGenreMap) {
+    const genres = await fetchGenres();
+    cachedGenreMap = new Map(genres.map((g) => [g.id, g.name]));
+  }
+  return cachedGenreMap;
 }

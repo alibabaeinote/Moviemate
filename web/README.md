@@ -1,9 +1,10 @@
 # MovieMate web
 
 A real (not a demo) web client against `moviemate-prod-2026`: Google
-sign-in, profile, onboarding (genre pick + Taste Dial rating deck), and
-pairing (invite/join) so far — built incrementally, same backend and
-schema as the Android app.
+sign-in, profile, onboarding (genre pick + Taste Dial rating deck),
+pairing (invite/join), and the daily Match loop (find tonight's movie,
+commit, watch, rate, streak) so far — built incrementally, same backend
+and schema as the Android app.
 
 The route through these (which screen to land on) is decided **once**
 per sign-in, mirroring `AppEntryViewModel.startRouteFor` in the Android
@@ -118,6 +119,46 @@ the normal way (`firebase deploy --only functions`, after
 `functions:secrets:set TMDB_ACCESS_TOKEN`) — this web client just doesn't
 depend on them.
 
+## The daily Match loop is also no-Blaze — with real deviations
+
+`generateDailyMatch` (a scheduled function) and `onMatchUpdate` (a
+Firestore trigger) are what run the recommendation engine and the
+watched/streak side-effects in the Android app's backend — both Cloud
+Functions, so both unusable here. `web/match-engine.js` and `web/match.js`
+port that logic to the browser (`firestore.rules` deviation **e**;
+`rules-tests/match.test.ts` covers the new rule paths), but three things
+are genuinely different from the server version, not just relocated:
+
+1. **No country signal.** `/discover/movie` never returns
+   `production_countries` (only `/movie/{id}` does), and fetching that for
+   every candidate in the pool was too many extra requests for a client
+   build to make eagerly. Its weight is folded into genre/era instead —
+   see the comment at the top of `match-engine.js`.
+2. **No scheduler, so it's a button.** There's no free equivalent of a
+   Cloud Scheduler job on Spark, so "tonight's movie" is found by tapping
+   **Find tonight's movie**, not delivered automatically at a local 9am.
+   The 20-hour gate in `createsTodaysMatch()` (firestore.rules) is the
+   closest a security rule can get to "once per day" without a clock of
+   its own; a real per-timezone local day needs something that runs
+   hourly to check it.
+3. **Client-computed, not server-verified.** The score and reason a match
+   is written with come from the browser running the same algorithm the
+   server would, not from re-deriving them inside the security rule (rules
+   can gate *who* and *what shape*, not *whether the math was right*).
+   That's the same trust level `createPair`/`joinPair`'s fallback already
+   accepts — reasonable for two people who aren't adversarial toward each
+   other, not something to build a multi-tenant product on.
+
+Also intentionally not built yet, mirroring the Android app's own
+`MatchPhase.kt` states this skips: the 3-up reject/fallback sequence
+(declining today's pick to try alternates) and the schedule-watch time
+picker. A "no match today" or a rejected day currently just waits for the
+20-hour gate and the **Find another match** retry button, not a same-day
+do-over. Push notifications (`partner_committed`, `both_confirmed`,
+`daily_match`, `partner_watched`) are Cloud Functions too and don't fire
+on this path at all — everything here is pull (open the app, see where
+today's match stands), not push.
+
 ## What this does so far
 
 - Signs in with Google (`signInWithPopup`), seeding `users/{uid}` on the
@@ -136,11 +177,21 @@ depend on them.
 - Pairing: get an invite code or enter one you were given. There's no
   live "partner joined" indicator here on purpose (see the routing note
   above) — once you're paired, tap Continue.
+- Match: once both of you have rated 10 films, tap **Find tonight's
+  movie** to get a suggestion (or the honest "nothing scored high enough
+  today" state). Either of you taps **I'm in**; once you both have, it's
+  confirmed and the film is added to the shared watchlist automatically.
+  After watching it together, **We watched it** advances the streak and
+  opens a one-film Taste Dial to rate what you saw.
 
 ## What's still not built
 
 - Avatar upload (Storage) — the Google account photo is used as-is.
-- The daily Match screen and watchlist/search. These are real next
-  slices, not skipped by accident — the Android app remains the only
-  client that has them built. Reaching "paired + onboarding done" here
-  currently lands on a placeholder card that says so.
+- Watchlist and Us screens (browsing the shared list, manual TMDB search,
+  journey/compatibility stats). The daily Match promotes a mutually-
+  committed film onto the watchlist collection, but there's no screen
+  here yet to browse or search it directly — Android remains the only
+  client with that built.
+- The Match screen's own next slices: the 3-up reject/fallback sequence
+  and the schedule-watch time picker (see "The daily Match loop is also
+  no-Blaze" above for why, and what's here instead).

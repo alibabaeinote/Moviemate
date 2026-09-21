@@ -2,7 +2,6 @@ package com.moviemate.app.ui.core
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,13 +67,15 @@ abstract class MovieMateViewModel : ViewModel() {
 /**
  * Turn a throwable into something worth showing a person.
  *
- * Callable errors carry copy written on the server (`joinPair` says "This
- * invite has already been used"), and that copy is better than anything a
- * generic handler could produce — so it wins. Everything else falls back to a
- * sentence that does not mention a stack trace.
+ * No Cloud Functions callable is invoked from the client anymore — pairing,
+ * onboarding and the daily match all write directly (see PairRepository),
+ * and reject/chooseFallbackFilm/scheduleWatch fail fast locally instead of
+ * calling one (see PairRepository.featureRequiresBlaze) — so there is no
+ * FirebaseFunctionsException to special-case here any more. Messages raised
+ * directly in this app's own code (joinPair's "This invite has already been
+ * used", featureRequiresBlaze's copy, etc.) are already written for a person
+ * to read, so they win as-is; everything else falls back to a sentence that
+ * does not mention a stack trace.
  */
-fun Throwable.readableMessage(): String = when (this) {
-    is FirebaseFunctionsException -> message ?: "Something went wrong. Try again."
-    else -> message?.takeIf { it.isNotBlank() && !it.startsWith("java.") }
-        ?: "Something went wrong. Try again."
-}
+fun Throwable.readableMessage(): String =
+    message?.takeIf { it.isNotBlank() && !it.startsWith("java.") } ?: "Something went wrong. Try again."

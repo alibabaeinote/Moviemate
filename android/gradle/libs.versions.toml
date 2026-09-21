@@ -39,7 +39,6 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
-firebase-functions = { group = "com.google.firebase", name = "firebase-functions-ktx" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage-ktx" }
 # Automatic fatal-crash reporting only — no Analytics, no manual event

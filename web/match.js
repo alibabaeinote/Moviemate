@@ -4,11 +4,11 @@ import {
   getCountFromServer,
   getDocs,
   query,
+  runTransaction,
   serverTimestamp,
   Timestamp,
   updateDoc,
   where,
-  writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { fetchFilmsByIds, fetchMatchCandidates } from "./tmdb.js";
 import { ALGORITHM_CONFIG, advanceStreak, buildTasteProfile, rankCandidates } from "./match-engine.js";
@@ -75,13 +75,25 @@ async function excludedFilmIds(db, pairId) {
   return excluded;
 }
 
+const GENERATION_GATE_MS = 20 * 60 * 60 * 1000; // mirrors createsTodaysMatch()'s duration.value(20, 'h')
+
 /**
  * The no-Blaze fallback for generateDailyMatch: builds both taste profiles,
  * pulls a candidate pool from TMDB, ranks it, and writes today's match doc
- * plus the pair's lastMatchGeneratedAt in one batch — the same two documents
+ * plus the pair's lastMatchGeneratedAt — the same two documents
  * generateMatchForPair's Admin-SDK write and the scheduled function's own
- * update touch, just as two client writes instead of one transaction.
- * Gated by firestore.rules' createsTodaysMatch()/updatesLastMatchGeneratedAt().
+ * update touch, just as client writes instead of one Admin transaction.
+ *
+ * The profile-building and TMDB fetch happen once, outside the transaction —
+ * a transaction body should only do Firestore reads/writes, not slow
+ * external I/O, since Firestore retries the whole body on a conflicting
+ * write. The transaction itself only re-checks the 20h gate against the
+ * *current* lastMatchGeneratedAt and writes both documents atomically: if
+ * two clients call this within the same window, Firestore's optimistic
+ * concurrency retries the loser's transaction against the winner's
+ * already-committed state, and the gate check below then throws a clean,
+ * friendly error instead of a duplicate match ever being written — closing
+ * the race a plain batch write left open.
  */
 export async function generateTodaysMatch(db, pairId, pair) {
   const [profileA, profileB, excluded] = await Promise.all([
@@ -93,9 +105,6 @@ export async function generateTodaysMatch(db, pairId, pair) {
   const candidates = await fetchMatchCandidates(ALGORITHM_CONFIG.candidatePoolSize, excluded);
   const result = rankCandidates(profileA, profileB, candidates);
 
-  const matchRef = doc(collection(db, "pairs", pairId, "matches"));
-  const batch = writeBatch(db);
-
   const base = {
     suggestedAt: serverTimestamp(),
     attemptNumber: 1,
@@ -106,31 +115,41 @@ export async function generateTodaysMatch(db, pairId, pair) {
     shortlist: [],
   };
 
-  if (result.noMatches) {
-    batch.set(matchRef, {
-      ...base,
-      filmId: "",
-      score: 0,
-      reason: "",
-      status: "dismissed",
-      noMatchesReason:
-        candidates.length === 0
-          ? "We ran out of fresh films to suggest."
-          : "Nothing scored high enough for both of you today.",
-    });
-  } else {
-    const top = result.ranked[0];
-    batch.set(matchRef, {
-      ...base,
-      filmId: top.film.filmId,
-      score: Math.round(top.finalScore),
-      reason: top.reason,
-      status: "suggested",
-    });
-  }
+  const matchData = result.noMatches
+    ? {
+        ...base,
+        filmId: "",
+        score: 0,
+        reason: "",
+        status: "dismissed",
+        noMatchesReason:
+          candidates.length === 0
+            ? "We ran out of fresh films to suggest."
+            : "Nothing scored high enough for both of you today.",
+      }
+    : {
+        ...base,
+        filmId: result.ranked[0].film.filmId,
+        score: Math.round(result.ranked[0].finalScore),
+        reason: result.ranked[0].reason,
+        status: "suggested",
+      };
 
-  batch.update(doc(db, "pairs", pairId), { lastMatchGeneratedAt: serverTimestamp() });
-  await batch.commit();
+  const matchRef = doc(collection(db, "pairs", pairId, "matches"));
+  const pairRef = doc(db, "pairs", pairId);
+
+  await runTransaction(db, async (tx) => {
+    const pairSnap = await tx.get(pairRef);
+    const lastGenerated = pairSnap.data()?.lastMatchGeneratedAt;
+    if (lastGenerated) {
+      const lastMs = lastGenerated.toMillis ? lastGenerated.toMillis() : new Date(lastGenerated).getTime();
+      if (Date.now() - lastMs < GENERATION_GATE_MS) {
+        throw new Error("Today's match has already been found.");
+      }
+    }
+    tx.set(matchRef, matchData);
+    tx.update(pairRef, { lastMatchGeneratedAt: serverTimestamp() });
+  });
 
   return { matchId: matchRef.id, noMatches: result.noMatches, film: result.ranked[0]?.film };
 }

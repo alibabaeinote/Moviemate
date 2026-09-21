@@ -1,0 +1,13 @@
+{
+  "name": "moviemate-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unit tests for the pure client-side logic in this folder (match-engine.js). No Firebase or network involved — see rules-tests/ for the Firestore security-rules suite, which is the only other automated coverage this client has.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.5"
+  }
+}

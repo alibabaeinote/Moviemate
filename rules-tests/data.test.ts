@@ -74,6 +74,13 @@ describe("ratings — the Taste Dial range is enforced by the rules", () => {
       })
     );
   });
+
+  it("STOPS a rating with no filmId", async () => {
+    const db = env.authenticatedContext(ALI).firestore();
+    await assertFails(
+      setDoc(doc(db, "pairs", PAIR, "ratings", `${ALI}_`), { ...rating(ALI, 50), filmId: "" })
+    );
+  });
 });
 
 describe("ratings belong to their author", () => {

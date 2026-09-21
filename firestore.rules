@@ -152,6 +152,8 @@ service cloud.firestore {
 
         allow create: if isPairMember(pairData(pairId))
           && request.resource.data.userId == request.auth.uid
+          && request.resource.data.filmId is string
+          && request.resource.data.filmId.size() > 0
           && request.resource.data.score is number
           && request.resource.data.score >= 0
           && request.resource.data.score <= 100;
@@ -159,6 +161,8 @@ service cloud.firestore {
         allow update: if isPairMember(pairData(pairId))
           && resource.data.userId == request.auth.uid
           && request.resource.data.userId == request.auth.uid
+          && request.resource.data.filmId is string
+          && request.resource.data.filmId.size() > 0
           && request.resource.data.score is number
           && request.resource.data.score >= 0
           && request.resource.data.score <= 100;
@@ -285,6 +289,10 @@ service cloud.firestore {
     function confirmsWatchedOnly() {
       return changedKeys().hasOnly(['watchedConfirmedAt', 'watchedConfirmedBy'])
         && resource.data.watchedConfirmedAt == null
+        // A no-match day ('dismissed', filmId == "") has nothing to watch —
+        // block confirming one, even though nothing in the UI offers to.
+        && resource.data.filmId is string
+        && resource.data.filmId.size() > 0
         && request.resource.data.watchedConfirmedAt is timestamp
         && request.resource.data.watchedConfirmedAt == request.time
         && request.resource.data.watchedConfirmedBy == request.auth.uid;

@@ -145,6 +145,10 @@ export function scoreCandidate(profileA, profileB, film, config = ALGORITHM_CONF
     film,
     finalScore: clamp(finalScore, 0, 100),
     reason: buildReason(profileA, profileB, film, config),
+    // Kept for debugging and for tuning the weights against real data, same
+    // as the server's own scoring.ts — and so this can be unit tested the
+    // same way scoring.test.ts tests the server version.
+    breakdown: { predictedA, predictedB, divergence, tasteScore, qualityBonus },
   };
 }
 

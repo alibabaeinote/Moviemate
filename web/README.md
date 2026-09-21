@@ -148,6 +148,15 @@ are genuinely different from the server version, not just relocated:
    That's the same trust level `createPair`/`joinPair`'s fallback already
    accepts — reasonable for two people who aren't adversarial toward each
    other, not something to build a multi-tenant product on.
+4. **`match.status` never reaches `"watched"`.** The server's `onMatchUpdate`
+   flips it when `watchedConfirmedAt` is set; this path deliberately reuses
+   `confirmsWatchedOnly()` unchanged (minimizing new rule surface) rather
+   than extending it to also touch `status`, so a web-generated match stays
+   `status: "suggested"` forever, even after it's been watched. Confirmed
+   harmless: both this client's own UI and Android's `MatchPhase.kt` check
+   `watchedConfirmedAt` before ever consulting `status`. Worth knowing if
+   you're ever reading `pairs/{pairId}/matches` directly (e.g. in the
+   Firestore console) and see that combination and wonder if it's a bug.
 
 Also intentionally not built yet, mirroring the Android app's own
 `MatchPhase.kt` states this skips: the 3-up reject/fallback sequence
@@ -158,6 +167,20 @@ do-over. Push notifications (`partner_committed`, `both_confirmed`,
 `daily_match`, `partner_watched`) are Cloud Functions too and don't fire
 on this path at all — everything here is pull (open the app, see where
 today's match stands), not push.
+
+`match-engine.js`'s pure logic (taste profiles, scoring, reason text,
+streak maths) has its own unit tests, ported from the server's equivalent
+suite (`functions/test/{tasteProfile,scoring,streak}.test.ts`):
+
+```
+cd web
+npm install   # once
+npm test
+```
+
+This is currently the only automated coverage for `web/*.js` logic itself —
+`rules-tests/` covers the Firestore security rules, not the client code
+that calls them.
 
 ## What this does so far
 

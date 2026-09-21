@@ -174,3 +174,27 @@ describe("advancesStreak — the no-Blaze fallback for onMatchUpdate's updateStr
     );
   });
 });
+
+describe("confirmsWatchedOnly — hardened against a no-match day", () => {
+  it("STOPS marking a 'no match today' document as watched", async () => {
+    const noMatchRef = doc(collection(env.authenticatedContext(ALI).firestore(), "pairs", PAIR, "matches"));
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "pairs", PAIR, "matches", noMatchRef.id), {
+        ...matchShape(),
+        filmId: "",
+        score: 0,
+        reason: "",
+        status: "dismissed",
+        noMatchesReason: "Nothing scored high enough for both of you today.",
+      });
+    });
+
+    const db = env.authenticatedContext(ALI).firestore();
+    await assertFails(
+      updateDoc(doc(db, "pairs", PAIR, "matches", noMatchRef.id), {
+        watchedConfirmedAt: serverTimestamp(),
+        watchedConfirmedBy: ALI,
+      })
+    );
+  });
+});

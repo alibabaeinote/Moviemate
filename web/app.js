@@ -719,7 +719,21 @@ els.joinBtn.addEventListener("click", async () => {
 let mtUnsubPair = null;
 let mtUnsubMatch = null;
 let mtRenderToken = 0;
-const mt = { pairId: null, pair: null, match: null, matchId: null };
+const mt = {
+  pairId: null,
+  pair: null,
+  match: null,
+  matchId: null,
+  // Once true, both-onboarded can never become false again for this pair —
+  // cached so re-renders (every commit, every streak update, ...) don't
+  // re-run two aggregate-count queries that can only ever confirm the same
+  // answer again.
+  bothOnboardedConfirmed: false,
+  // Tracks which match's watchlist promotion has already been attempted, so
+  // a re-render while sitting in the "confirmed" phase doesn't retry a
+  // write the rules will reject anyway (the doc already exists by then).
+  promotedMatchId: null,
+};
 const filmDetailsCache = new Map();
 
 async function getFilmDetails(filmId) {
@@ -790,6 +804,8 @@ async function renderWatchedView(match) {
  * and fails harmlessly.
  */
 async function ensurePromotedToWatchlist(match, matchId) {
+  if (mt.promotedMatchId === matchId) return; // already attempted for this match
+  mt.promotedMatchId = matchId;
   try {
     await setDoc(doc(db, "pairs", mt.pairId, "watchlist", matchId), {
       filmId: match.filmId,
@@ -809,8 +825,11 @@ async function ensurePromotedToWatchlist(match, matchId) {
 async function renderMatchSection() {
   if (!mt.pair) return;
   const token = ++mtRenderToken;
-  const ready = await isBothOnboarded(db, mt.pairId, mt.pair);
-  if (token !== mtRenderToken) return; // a newer render started while this awaited
+  if (!mt.bothOnboardedConfirmed) {
+    mt.bothOnboardedConfirmed = await isBothOnboarded(db, mt.pairId, mt.pair);
+    if (token !== mtRenderToken) return; // a newer render started while this awaited
+  }
+  const ready = mt.bothOnboardedConfirmed;
 
   if (!ready) {
     els.matchWaitingText.textContent = "Waiting for your partner to finish rating their films.";
@@ -878,6 +897,8 @@ function initMatchSection(pairId, pair) {
   mt.pair = pair;
   mt.match = null;
   mt.matchId = null;
+  mt.bothOnboardedConfirmed = false;
+  mt.promotedMatchId = null;
   showStatus(els.matchStatus, "", false);
 
   mtUnsubPair = onSnapshot(

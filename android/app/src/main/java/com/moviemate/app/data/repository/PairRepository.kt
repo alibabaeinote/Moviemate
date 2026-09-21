@@ -6,7 +6,6 @@ import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.functions.FirebaseFunctions
 import com.moviemate.app.data.model.CommitStatus
 import com.moviemate.app.data.model.Match
 import com.moviemate.app.data.model.Pair
@@ -36,13 +35,15 @@ import com.moviemate.app.data.recommendation.advanceStreak as computeStreakAdvan
 /**
  * Pair, rating, match and watchlist access.
  *
- * createPair/joinPair are Cloud Functions callables in the schema doc, but
- * this project has never had the Blaze plan those require to deploy at all
- * (see firestore.rules deviation d) — FirebasePairRepository below performs
- * the same writes directly instead, gated by claimsOwnPair()/joinsOpenSeat().
- * rejectMatch/chooseFallbackFilm/scheduleWatch remain callable-only and are
- * currently non-functional for the same reason; porting those would need new
- * rules this app doesn't have yet (see README's no-Blaze section).
+ * createPair/joinPair/onboarding-content/the daily match are Cloud Functions
+ * in the schema doc, but this project has never had the Blaze plan those
+ * require to deploy at all (see firestore.rules deviation d/e) —
+ * FirebasePairRepository below performs the same work directly instead,
+ * gated by claimsOwnPair()/joinsOpenSeat()/createsTodaysMatch() and friends.
+ * rejectMatch/chooseFallbackFilm/scheduleWatch have no such fallback and
+ * fail fast with a clear message instead (see featureRequiresBlaze at the
+ * bottom of this file) — porting those would need new rules this app
+ * doesn't have yet (see README's no-Blaze section).
  *
  * An interface, not just a class, so ViewModel tests can substitute a fake
  * instead of talking to Firestore — see `data.repository.FakePairRepository`
@@ -101,10 +102,9 @@ interface PairRepository {
     suspend fun commitToWatchlistItem(pairId: String, itemId: String, isUserA: Boolean): Result<Unit>
 }
 
-/** The real, Firestore/Cloud-Functions-backed [PairRepository]. */
+/** The real, Firestore-backed [PairRepository]. */
 class FirebasePairRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val functions: FirebaseFunctions = FirebaseFunctions.getInstance("europe-west1"),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val tmdbClient: TmdbClient = TmdbClient(),
 ) : PairRepository {
@@ -599,47 +599,38 @@ class FirebasePairRepository(
                 .await()
         }
 
-    override suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> = runCatching {
-        functions.getHttpsCallable("rejectMatch")
-            .call(mapOf("pairId" to pairId, "matchId" to matchId))
-            .await()
-        Unit
-    }
+    /**
+     * Unlike createPair/joinPair/onboarding/the daily match, this one has no
+     * no-Blaze fallback: rejecting is shared state (it advances the sequence
+     * for both partners and eventually unlocks the fallback shortlist), and
+     * unlike the fields client rules already let either partner touch
+     * directly (commitStatus, watchedConfirmedAt), doing that safely here
+     * needs server-verified sequencing — see functions/src/callable/
+     * rejectMatch.ts, which exists and is tested, just never deployed
+     * without Blaze. Failing fast with a clear message beats a network round
+     * trip to a callable this project has never had a plan to run.
+     */
+    override suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> =
+        Result.failure(featureRequiresBlaze("Rejecting a pick"))
 
     /**
-     * Pick one of the three films on the fallback screen.
-     *
-     * A callable rather than a direct write because `filmId` is closed to
-     * clients on purpose — it is shared state, and either partner rewriting it
-     * would change the film out from under the other's commitment.
+     * Pick one of the three films on the fallback screen. No no-Blaze
+     * fallback for the same reason as [rejectMatch]: choosing here also owns
+     * `filmId`, which is closed to clients so neither partner can rewrite
+     * the other's commitment out from under them.
      */
     override suspend fun chooseFallbackFilm(
         pairId: String,
         matchId: String,
         filmId: String,
-    ): Result<Unit> = runCatching {
-        functions.getHttpsCallable("chooseFallbackFilm")
-            .call(mapOf("pairId" to pairId, "matchId" to matchId, "filmId" to filmId))
-            .await()
-        Unit
-    }
+    ): Result<Unit> = Result.failure(featureRequiresBlaze("Choosing a fallback pick"))
 
+    /** No no-Blaze fallback for the same reason as [rejectMatch]. */
     override suspend fun scheduleWatch(
         pairId: String,
         matchId: String,
         scheduledForMillis: Long,
-    ): Result<Unit> = runCatching {
-        functions.getHttpsCallable("scheduleWatch")
-            .call(
-                mapOf(
-                    "pairId" to pairId,
-                    "matchId" to matchId,
-                    "scheduledForMs" to scheduledForMillis,
-                ),
-            )
-            .await()
-        Unit
-    }
+    ): Result<Unit> = Result.failure(featureRequiresBlaze("Scheduling a watch time"))
 
     /**
      * Add a film someone searched for, already committed on their own side.
@@ -747,3 +738,14 @@ data class DeckFilm(
     // and data.recommendation.scoreCandidate).
     val tmdbRating: Double = 0.0,
 )
+
+/**
+ * rejectMatch/chooseFallbackFilm/scheduleWatch have real, tested Cloud
+ * Functions (functions/src/callable) but — unlike pairing, onboarding and
+ * the daily match — no no-Blaze fallback: doing them safely from the client
+ * needs server-verified sequencing a security rule alone can't express (see
+ * their own doc comments). Failing fast with this beats a network round
+ * trip to a callable this Spark-plan project has never had a way to deploy.
+ */
+private fun featureRequiresBlaze(action: String): Throwable =
+    IllegalStateException("$action isn't available yet — this app needs the Firebase Blaze plan enabled.")

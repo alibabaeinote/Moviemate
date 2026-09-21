@@ -1,8 +1,10 @@
 package com.moviemate.app.data.repository
 
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.functions.FirebaseFunctions
 import com.moviemate.app.data.model.CommitStatus
@@ -15,14 +17,19 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import java.util.Date
 import java.util.TimeZone
 
 /**
  * Pair, rating, match and watchlist access.
  *
- * Anything that has to be consistent across both users — creating or joining a
- * pair, rejecting a match, scheduling a watch — goes through a callable rather
- * than a direct write, because the security rules close those paths on purpose.
+ * createPair/joinPair are Cloud Functions callables in the schema doc, but
+ * this project has never had the Blaze plan those require to deploy at all
+ * (see firestore.rules deviation d) — FirebasePairRepository below performs
+ * the same writes directly instead, gated by claimsOwnPair()/joinsOpenSeat().
+ * rejectMatch/chooseFallbackFilm/scheduleWatch remain callable-only and are
+ * currently non-functional for the same reason; porting those would need new
+ * rules this app doesn't have yet (see README's no-Blaze section).
  *
  * An interface, not just a class, so ViewModel tests can substitute a fake
  * instead of talking to Firestore — see `data.repository.FakePairRepository`
@@ -71,39 +78,123 @@ interface PairRepository {
 class FirebasePairRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance("europe-west1"),
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
 ) : PairRepository {
     private fun pairDoc(pairId: String) = firestore.collection("pairs").document(pairId)
+    private fun userDoc(uid: String) = firestore.collection("users").document(uid)
+    private fun inviteCodeDoc(code: String) = firestore.collection("inviteCodes").document(code)
 
     /** Lower bound for "this timestamp is set". See pairTotals. */
     private val EPOCH = Timestamp(0, 0)
 
+    /**
+     * Direct Firestore equivalent of createPair.ts's Admin-SDK transaction —
+     * createPair/joinPair are Cloud Functions, and 2nd-gen functions require
+     * the Blaze plan to deploy at all, which this project doesn't have (see
+     * firestore.rules deviation d). Mirrors web/app.js's createPairDirect
+     * write-for-write, gated the same way by claimsOwnPair()/the pairs
+     * create rule.
+     *
+     * Retries on the (unlikely) invite-code collision: a collision surfaces
+     * here as the inviteCodes write being evaluated as an update (the doc
+     * already exists) against a rule that never allows update, which fails
+     * with PERMISSION_DENIED.
+     */
     override suspend fun createPair(): Result<InviteInfo> = runCatching {
-        val response = functions
-            .getHttpsCallable("createPair")
-            .call(mapOf("timezone" to TimeZone.getDefault().id))
-            .await()
+        val uid = requireNotNull(auth.currentUser?.uid) { "Not signed in." }
+        val timezone = TimeZone.getDefault().id
 
-        // getData(), not the `.data` synthetic property: HttpsCallableResult
-        // declares a private field of that name, which Kotlin resolves to
-        // ahead of the getter.
-        @Suppress("UNCHECKED_CAST")
-        val data = response.getData() as Map<String, Any?>
-        InviteInfo(
-            pairId = data["pairId"] as String,
-            inviteCode = data["inviteCode"] as String,
-            expiresAtMillis = (data["inviteCodeExpiresAt"] as Number).toLong(),
-        )
+        repeat(MAX_INVITE_CODE_ATTEMPTS) {
+            val inviteCode = generateInviteCode()
+            val pairRef = firestore.collection("pairs").document()
+            val expiresAt = Timestamp(Date(System.currentTimeMillis() + INVITE_CODE_TTL_MS))
+
+            val batch = firestore.batch()
+            batch.set(
+                pairRef,
+                mapOf(
+                    "userA" to uid,
+                    "userB" to null,
+                    "inviteCode" to inviteCode,
+                    "inviteCodeExpiresAt" to expiresAt,
+                    "status" to "waiting_partner",
+                    "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                    "aBothOnboarded" to false,
+                    "streakCount" to 0,
+                    "lastMatchGeneratedAt" to null,
+                    "lastWatchAt" to null,
+                    "timezone" to timezone,
+                ),
+            )
+            batch.set(inviteCodeDoc(inviteCode), mapOf("pairId" to pairRef.id, "expiresAt" to expiresAt))
+
+            try {
+                batch.commit().await()
+            } catch (e: FirebaseFirestoreException) {
+                if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) return@repeat
+                throw e
+            }
+
+            userDoc(uid).update("pairId", pairRef.id).await()
+            return@runCatching InviteInfo(
+                pairId = pairRef.id,
+                inviteCode = inviteCode,
+                expiresAtMillis = expiresAt.toDate().time,
+            )
+        }
+        error("Could not allocate an invite code. Try again.")
     }
 
+    /**
+     * Resolves the code via /inviteCodes, claims the open seat, then claims
+     * this uid's own pairId — the same three facts joinPair's Admin-SDK
+     * transaction establishes atomically, as separate client writes gated by
+     * joinsOpenSeat()/claimsOwnPair(). Mirrors web/app.js's joinPairDirect.
+     * The pre-checks below are for a friendly error message only —
+     * joinsOpenSeat() re-checks all of this server-side regardless, so a
+     * race with someone else joining first is still safe even though these
+     * reads are not.
+     */
     override suspend fun joinPair(inviteCode: String): Result<String> = runCatching {
-        val response = functions
-            .getHttpsCallable("joinPair")
-            .call(mapOf("inviteCode" to inviteCode, "timezone" to TimeZone.getDefault().id))
-            .await()
+        val uid = requireNotNull(auth.currentUser?.uid) { "Not signed in." }
 
-        @Suppress("UNCHECKED_CAST")
-        val data = response.getData() as Map<String, Any?>
-        data["pairId"] as String
+        val codeSnap = inviteCodeDoc(inviteCode).get().await()
+        if (!codeSnap.exists()) error("That code doesn't match any invite.")
+        val pairId = requireNotNull(codeSnap.getString("pairId")) { "That code doesn't match any invite." }
+
+        val pairSnap = pairDoc(pairId).get().await()
+        if (!pairSnap.exists()) error("That code doesn't match any invite.")
+        val pair = requireNotNull(pairSnap.toObject(Pair::class.java))
+        if (pair.userA == uid) error("That's your own invite code.")
+        if (pair.userB != null) error("This invite has already been used.")
+        val expiresAt = pairSnap.getTimestamp("inviteCodeExpiresAt")
+        if (expiresAt == null || expiresAt.toDate().time <= System.currentTimeMillis()) {
+            error("This invite code has expired.")
+        }
+
+        val ownProfile = userDoc(uid).get().await().toObject(User::class.java)
+        val name = ownProfile?.name?.takeIf { it.isNotBlank() } ?: auth.currentUser?.displayName.orEmpty()
+        val avatarUrl = ownProfile?.avatarUrl ?: auth.currentUser?.photoUrl?.toString()
+
+        try {
+            pairDoc(pairId).update(
+                mapOf(
+                    "userB" to uid,
+                    "status" to "both_rating",
+                    "joinedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                    "userBName" to name,
+                    "userBAvatarUrl" to avatarUrl,
+                ),
+            ).await()
+        } catch (e: FirebaseFirestoreException) {
+            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                error("This invite has already been used.")
+            }
+            throw e
+        }
+
+        userDoc(uid).update("pairId", pairId).await()
+        pairId
     }
 
     // ---------- Onboarding content ----------
@@ -427,6 +518,20 @@ class FirebasePairRepository(
     ): Result<Unit> = runCatching {
         val field = if (isUserA) "commitStatus.userA" else "commitStatus.userB"
         pairDoc(pairId).collection("watchlist").document(itemId).update(field, true).await()
+    }
+
+    private companion object {
+        // Mirrors web/app.js's generateInviteCode/INVITE_CODE_TTL_MS, itself
+        // mirroring functions/src/lib/pairs.ts.
+        const val INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no I/O/0/1
+        const val INVITE_CODE_LENGTH = 6
+        const val INVITE_CODE_TTL_MS = 7L * 24 * 60 * 60 * 1000 // 7 days, ALI-73
+        const val MAX_INVITE_CODE_ATTEMPTS = 5
+
+        fun generateInviteCode(): String {
+            val code = (1..INVITE_CODE_LENGTH).map { INVITE_CODE_ALPHABET.random() }.joinToString("")
+            return "MVMT-$code"
+        }
     }
 }
 

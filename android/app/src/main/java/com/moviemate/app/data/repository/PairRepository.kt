@@ -13,6 +13,7 @@ import com.moviemate.app.data.model.Pair
 import com.moviemate.app.data.model.Rating
 import com.moviemate.app.data.model.User
 import com.moviemate.app.data.model.WatchlistItem
+import com.moviemate.app.data.remote.TmdbClient
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -79,6 +80,7 @@ class FirebasePairRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance("europe-west1"),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
+    private val tmdbClient: TmdbClient = TmdbClient(),
 ) : PairRepository {
     private fun pairDoc(pairId: String) = firestore.collection("pairs").document(pairId)
     private fun userDoc(uid: String) = firestore.collection("users").document(uid)
@@ -199,73 +201,39 @@ class FirebasePairRepository(
 
     // ---------- Onboarding content ----------
 
-    /** Stage 1 of onboarding: the genres the user picks from. */
-    override suspend fun listGenres(): Result<List<TmdbGenre>> = runCatching {
-        val response = functions.getHttpsCallable("listGenres").call().await()
-
-        @Suppress("UNCHECKED_CAST")
-        val data = response.getData() as Map<String, Any?>
-        @Suppress("UNCHECKED_CAST")
-        val genres = data["genres"] as List<Map<String, Any?>>
-        genres.map { TmdbGenre(id = (it["id"] as Number).toInt(), name = it["name"] as String) }
-    }
+    /**
+     * Stage 1 of onboarding: the genres the user picks from.
+     *
+     * listGenres/getOnboardingFilms/searchFilms were Cloud Functions callables
+     * (see functions/src/callable/*.ts); this project has never had Blaze to
+     * deploy them with, so [tmdbClient] calls TMDB directly instead — the same
+     * no-Blaze fallback as web/tmdb.js, and as [createPair]/[joinPair] above.
+     */
+    override suspend fun listGenres(): Result<List<TmdbGenre>> = runCatching { tmdbClient.listGenres() }
 
     /**
      * Stage 2: the rating deck, spread across eras rather than just the most
      * popular titles — era and country carry 40% of the scoring weight, and a
      * deck of recent blockbusters teaches the profile neither.
+     *
+     * No excludeIds here: [extendDeck][com.moviemate.app.ui.screens.onboarding.OnboardingRateViewModel]
+     * re-requests the same genres and dedupes against what's already on
+     * screen client-side, same as before this call went direct to TMDB.
      */
     override suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>> = runCatching {
-        val response = functions
-            .getHttpsCallable("getOnboardingFilms")
-            .call(mapOf("genreIds" to genreIds))
-            .await()
-
-        @Suppress("UNCHECKED_CAST")
-        val data = response.getData() as Map<String, Any?>
-        @Suppress("UNCHECKED_CAST")
-        val films = data["films"] as List<Map<String, Any?>>
-        films.map { film ->
-            @Suppress("UNCHECKED_CAST")
-            DeckFilm(
-                filmId = film["filmId"] as String,
-                title = film["title"] as String,
-                posterPath = film["posterPath"] as String?,
-                genres = (film["genres"] as? List<String>).orEmpty(),
-                releaseYear = (film["releaseYear"] as Number).toInt(),
-                overview = film["overview"] as? String ?: "",
-            )
-        }
+        tmdbClient.getOnboardingFilms(genreIds, size = ONBOARDING_DECK_SIZE)
     }
 
     /**
      * Manual film search for the Watchlist.
      *
-     * Goes through the callable rather than TMDB directly: the result has to be
-     * written into filmCache for anything to resolve it later, and clients
-     * cannot write filmCache.
+     * Used to go through the callable rather than TMDB directly because the
+     * result had to land in filmCache for anything to resolve it later —
+     * moot now that [FirebaseFilmRepository] falls back to TmdbClient on a
+     * cache miss instead of depending on filmCache being populated at all.
      */
     override suspend fun searchFilms(query: String): Result<List<DeckFilm>> = runCatching {
-        val response = functions
-            .getHttpsCallable("searchFilms")
-            .call(mapOf("query" to query))
-            .await()
-
-        @Suppress("UNCHECKED_CAST")
-        val data = response.getData() as Map<String, Any?>
-        @Suppress("UNCHECKED_CAST")
-        val films = data["films"] as List<Map<String, Any?>>
-        films.map { film ->
-            @Suppress("UNCHECKED_CAST")
-            DeckFilm(
-                filmId = film["filmId"] as String,
-                title = film["title"] as String,
-                posterPath = film["posterPath"] as String?,
-                genres = (film["genres"] as? List<String>).orEmpty(),
-                releaseYear = (film["releaseYear"] as Number).toInt(),
-                overview = film["overview"] as? String ?: "",
-            )
-        }
+        tmdbClient.searchFilms(query)
     }
 
     // ---------- Live reads ----------
@@ -527,6 +495,12 @@ class FirebasePairRepository(
         const val INVITE_CODE_LENGTH = 6
         const val INVITE_CODE_TTL_MS = 7L * 24 * 60 * 60 * 1000 // 7 days, ALI-73
         const val MAX_INVITE_CODE_ATTEMPTS = 5
+
+        // Mirrors ui.screens.onboarding.OnboardingConfig.DECK_SIZE (data can't
+        // depend on ui, hence the separate constant) and web/app.js's own
+        // DECK_SIZE — bigger than the 10-rating target so a narrow-taste user
+        // has headroom to skip without hitting the end of the deck.
+        const val ONBOARDING_DECK_SIZE = 20
 
         fun generateInviteCode(): String {
             val code = (1..INVITE_CODE_LENGTH).map { INVITE_CODE_ALPHABET.random() }.joinToString("")

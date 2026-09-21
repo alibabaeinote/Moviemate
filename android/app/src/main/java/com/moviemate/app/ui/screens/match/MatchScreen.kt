@@ -174,7 +174,7 @@ private fun NoMatchesPhase(phase: MatchPhase.NoMatches, busy: Boolean, onRetry: 
     Headline(title = "NO PICK TODAY", body = phase.reason)
     if (phase.canRetry) {
         Spacer(Modifier.height(Space.stackTight))
-        SecondaryCta(label = "Find another match", onClick = { if (!busy) onRetry() })
+        SecondaryCta(label = "Find another match", onClick = onRetry, enabled = !busy)
     }
 }
 
@@ -521,7 +521,7 @@ private fun WatchedPhase(phase: MatchPhase.Watched, busy: Boolean, onRate: () ->
 
     if (phase.canRetry) {
         Spacer(Modifier.height(Space.stackTight))
-        SecondaryCta(label = "Find another match", onClick = { if (!busy) onRetry() })
+        SecondaryCta(label = "Find another match", onClick = onRetry, enabled = !busy)
     }
 }
 

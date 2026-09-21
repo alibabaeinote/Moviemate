@@ -13,13 +13,25 @@ import com.moviemate.app.data.model.Pair
 import com.moviemate.app.data.model.Rating
 import com.moviemate.app.data.model.User
 import com.moviemate.app.data.model.WatchlistItem
+import com.moviemate.app.data.recommendation.AlgorithmConfig
+import com.moviemate.app.data.recommendation.RatedFilm
+import com.moviemate.app.data.recommendation.ScorableFilm
+import com.moviemate.app.data.recommendation.StreakState
+import com.moviemate.app.data.recommendation.TasteProfile
+import com.moviemate.app.data.recommendation.buildTasteProfile
+import com.moviemate.app.data.recommendation.rankCandidates
 import com.moviemate.app.data.remote.TmdbClient
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import java.time.Instant
 import java.util.Date
 import java.util.TimeZone
+import kotlin.math.roundToInt
+import com.moviemate.app.data.recommendation.advanceStreak as computeStreakAdvance
 
 /**
  * Pair, rating, match and watchlist access.
@@ -45,6 +57,20 @@ interface PairRepository {
     suspend fun listGenres(): Result<List<TmdbGenre>>
     suspend fun getOnboardingFilms(genreIds: List<Int>): Result<List<DeckFilm>>
     suspend fun searchFilms(query: String): Result<List<DeckFilm>>
+
+    // ---------- Live onboarding detection (no-Blaze) ----------
+    /** How many onboarding ratings this uid has actually written. */
+    suspend fun onboardingRatingCount(pairId: String, uid: String): Int
+
+    /** Both partners done rating, computed live rather than trusting aBothOnboarded. */
+    suspend fun isBothOnboarded(pairId: String, pair: Pair): Boolean
+
+    // ---------- Daily match generation (no-Blaze) ----------
+    /** "Find tonight's movie" — builds and writes today's match, once per ~20h. */
+    suspend fun generateTodaysMatch(pairId: String, pair: Pair): Result<Unit>
+
+    /** Runs after a "we watched it" confirmation to advance (or reset) the streak. */
+    suspend fun advancePairStreak(pairId: String, pair: Pair, watchedAtMillis: Long): Result<Unit>
 
     // ---------- Live reads ----------
     fun observeUser(uid: String): Flow<User?>
@@ -205,7 +231,7 @@ class FirebasePairRepository(
      * Stage 1 of onboarding: the genres the user picks from.
      *
      * listGenres/getOnboardingFilms/searchFilms were Cloud Functions callables
-     * (see functions/src/callable/*.ts); this project has never had Blaze to
+     * (see functions/src/callable); this project has never had Blaze to
      * deploy them with, so [tmdbClient] calls TMDB directly instead — the same
      * no-Blaze fallback as web/tmdb.js, and as [createPair]/[joinPair] above.
      */
@@ -235,6 +261,177 @@ class FirebasePairRepository(
     override suspend fun searchFilms(query: String): Result<List<DeckFilm>> = runCatching {
         tmdbClient.searchFilms(query)
     }
+
+    // ---------- Live onboarding detection (no-Blaze) ----------
+
+    /**
+     * Live replacement for users.onboardingComplete/pairs.aBothOnboarded —
+     * both are only ever set by the Blaze-only onRatingComplete trigger,
+     * which has never run on this project. Mirrors web/match.js's
+     * onboardingRatingCount/isBothOnboarded: an aggregate count against the
+     * ratings this uid has actually written, rather than a stored flag
+     * nothing can flip without Blaze.
+     */
+    override suspend fun onboardingRatingCount(pairId: String, uid: String): Int = runCatching {
+        pairDoc(pairId).collection("ratings")
+            .whereEqualTo("userId", uid)
+            .whereEqualTo("isInitialOnboarding", true)
+            .count().get(AggregateSource.SERVER).await().count.toInt()
+    }.getOrDefault(0)
+
+    override suspend fun isBothOnboarded(pairId: String, pair: Pair): Boolean {
+        val userB = pair.userB ?: return false
+        val (countA, countB) = coroutineScope {
+            val a = async { onboardingRatingCount(pairId, pair.userA) }
+            val b = async { onboardingRatingCount(pairId, userB) }
+            a.await() to b.await()
+        }
+        return countA >= AlgorithmConfig.ONBOARDING_RATING_TARGET && countB >= AlgorithmConfig.ONBOARDING_RATING_TARGET
+    }
+
+    // ---------- Daily match generation (no-Blaze) ----------
+
+    /** Rebuild one user's taste profile from their full rating history against TMDB. */
+    private suspend fun buildProfileFor(pairId: String, uid: String): TasteProfile {
+        val ratings = pairDoc(pairId).collection("ratings")
+            .whereEqualTo("userId", uid)
+            .get().await()
+            .toObjects(Rating::class.java)
+        if (ratings.isEmpty()) return buildTasteProfile(emptyList())
+
+        val films = tmdbClient.getFilms(ratings.map { it.filmId })
+        val rated = ratings.mapNotNull { rating ->
+            films[rating.filmId]?.let { film ->
+                RatedFilm(
+                    filmId = rating.filmId,
+                    genres = film.genres,
+                    releaseYear = film.releaseYear,
+                    score = rating.score,
+                )
+            }
+        }
+        return buildTasteProfile(rated)
+    }
+
+    /** Films neither user should be offered again: already rated, listed or matched. */
+    private suspend fun excludedFilmIds(pairId: String): Set<String> = coroutineScope {
+        val ratings = async { pairDoc(pairId).collection("ratings").get().await() }
+        val watchlist = async { pairDoc(pairId).collection("watchlist").get().await() }
+        val matches = async { pairDoc(pairId).collection("matches").get().await() }
+
+        buildSet {
+            ratings.await().toObjects(Rating::class.java).forEach { add(it.filmId) }
+            watchlist.await().toObjects(WatchlistItem::class.java).forEach { add(it.filmId) }
+            matches.await().toObjects(Match::class.java).forEach { if (it.filmId.isNotBlank()) add(it.filmId) }
+        }
+    }
+
+    /**
+     * The no-Blaze fallback for generateDailyMatch: builds both taste
+     * profiles, pulls a candidate pool from TMDB, ranks it, and writes
+     * today's match doc plus the pair's lastMatchGeneratedAt — mirrors
+     * web/match.js's generateTodaysMatch write-for-write, including running
+     * the profile-building and TMDB fetch outside the transaction (a
+     * transaction body should only do Firestore reads/writes) and having the
+     * transaction itself re-check the 20h gate against the *current*
+     * lastMatchGeneratedAt before writing. If two clients call this within
+     * the same window, Firestore's optimistic concurrency retries the
+     * loser's transaction against the winner's already-committed state, and
+     * the gate check then throws a clean error instead of a duplicate match
+     * ever being written.
+     */
+    override suspend fun generateTodaysMatch(pairId: String, pair: Pair): Result<Unit> = runCatching {
+        val userB = requireNotNull(pair.userB) { "No partner yet." }
+
+        val profileA: TasteProfile
+        val profileB: TasteProfile
+        val excluded: Set<String>
+        coroutineScope {
+            val a = async { buildProfileFor(pairId, pair.userA) }
+            val b = async { buildProfileFor(pairId, userB) }
+            val e = async { excludedFilmIds(pairId) }
+            profileA = a.await()
+            profileB = b.await()
+            excluded = e.await()
+        }
+
+        val candidates = tmdbClient.getMatchCandidates(AlgorithmConfig.CANDIDATE_POOL_SIZE, excluded)
+            .map { ScorableFilm(it.filmId, it.genres, it.releaseYear, it.tmdbRating) }
+        val result = rankCandidates(profileA, profileB, candidates)
+
+        val base = mapOf(
+            "attemptNumber" to 1,
+            "suggestedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+            "commitStatus" to mapOf("userA" to false, "userB" to false),
+            "bothConfirmedAt" to null,
+            "watchedConfirmedAt" to null,
+            "watchedConfirmedBy" to null,
+            "shortlist" to emptyList<Any>(),
+        )
+
+        val matchData: Map<String, Any?> = if (result.noMatches) {
+            base + mapOf(
+                "filmId" to "",
+                "score" to 0,
+                "reason" to "",
+                "status" to "dismissed",
+                "noMatchesReason" to if (candidates.isEmpty()) {
+                    "We ran out of fresh films to suggest."
+                } else {
+                    "Nothing scored high enough for both of you today."
+                },
+            )
+        } else {
+            val top = result.ranked.first()
+            base + mapOf(
+                "filmId" to top.film.filmId,
+                "score" to top.finalScore.roundToInt(),
+                "reason" to top.reason,
+                "status" to "suggested",
+            )
+        }
+
+        val matchRef = pairDoc(pairId).collection("matches").document()
+        val pairRef = pairDoc(pairId)
+
+        firestore.runTransaction<Unit> { transaction ->
+            val pairSnap = transaction.get(pairRef)
+            val lastGenerated = pairSnap.getTimestamp("lastMatchGeneratedAt")
+            if (lastGenerated != null &&
+                System.currentTimeMillis() - lastGenerated.toDate().time < GENERATION_GATE_MS
+            ) {
+                error("Today's match has already been found.")
+            }
+            transaction.set(matchRef, matchData)
+            transaction.update(pairRef, "lastMatchGeneratedAt", com.google.firebase.firestore.FieldValue.serverTimestamp())
+            Unit
+        }.await()
+    }
+
+    /**
+     * The no-Blaze fallback for onMatchUpdate's updateStreak: run the same
+     * pure advanceStreak() logic (data.recommendation.MatchEngine.kt)
+     * against the pair's current state and write the result. Called by
+     * whichever client just confirmed "we watched it" (confirmsWatchedOnly
+     * already allows that write, unchanged).
+     */
+    override suspend fun advancePairStreak(pairId: String, pair: Pair, watchedAtMillis: Long): Result<Unit> =
+        runCatching {
+            val watchedAt = Instant.ofEpochMilli(watchedAtMillis)
+            val state = StreakState(
+                count = pair.streakCount,
+                lastWatchAt = pair.lastWatchAt?.toDate()?.toInstant(),
+            )
+            val result = computeStreakAdvance(state, watchedAt)
+            if (!result.changed) return@runCatching
+
+            pairDoc(pairId).update(
+                mapOf(
+                    "streakCount" to result.count,
+                    "lastWatchAt" to Timestamp(Date(watchedAtMillis)),
+                ),
+            ).await()
+        }
 
     // ---------- Live reads ----------
 
@@ -501,6 +698,10 @@ class FirebasePairRepository(
         // DECK_SIZE — bigger than the 10-rating target so a narrow-taste user
         // has headroom to skip without hitting the end of the deck.
         const val ONBOARDING_DECK_SIZE = 20
+
+        // Mirrors createsTodaysMatch()'s duration.value(20, 'h') and
+        // web/match.js's GENERATION_GATE_MS.
+        const val GENERATION_GATE_MS = 20L * 60 * 60 * 1000
 
         fun generateInviteCode(): String {
             val code = (1..INVITE_CODE_LENGTH).map { INVITE_CODE_ALPHABET.random() }.joinToString("")

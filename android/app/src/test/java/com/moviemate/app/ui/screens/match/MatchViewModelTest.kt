@@ -39,7 +39,7 @@ class MatchViewModelTest {
     private val alice = Session(
         uid = "alice",
         user = User(uid = "alice", pairId = "p1"),
-        pair = PairModel(id = "p1", userA = "alice", userB = "bob", aBothOnboarded = true),
+        pair = PairModel(id = "p1", userA = "alice", userB = "bob"),
     )
 
     private fun viewModel(session: Session?) =
@@ -54,9 +54,9 @@ class MatchViewModelTest {
 
     @Test
     fun `a pair mid-onboarding renders WaitingForPartner as Content, not Empty`() {
-        val session = alice.copy(pair = alice.pair!!.copy(aBothOnboarded = false))
+        pairRepository.isBothOnboardedResult = false
 
-        val viewModel = viewModel(session)
+        val viewModel = viewModel(alice)
 
         val phase = (viewModel.state.value as UiState.Content).value
         assertTrue(phase is MatchPhase.WaitingForPartner)
@@ -163,6 +163,45 @@ class MatchViewModelTest {
             listOf(ConfirmWatchedCall(pairId = "p1", matchId = "m1", uid = "alice")),
             pairRepository.confirmedWatched,
         )
+    }
+
+    @Test
+    fun `confirmWatched advances the streak only after the confirm write succeeds`() {
+        pairRepository.setMatch("p1", Match(id = "m1", bothConfirmedAt = Timestamp(1_700_000_000L, 0)))
+        val viewModel = viewModel(alice)
+
+        viewModel.confirmWatched("m1")
+
+        assertEquals(1, pairRepository.advancePairStreakCalls.size)
+    }
+
+    @Test
+    fun `confirmWatched does not advance the streak when the confirm write fails`() {
+        pairRepository.setMatch("p1", Match(id = "m1", bothConfirmedAt = Timestamp(1_700_000_000L, 0)))
+        pairRepository.confirmWatchedResult = Result.failure(RuntimeException("offline"))
+        val viewModel = viewModel(alice)
+
+        viewModel.confirmWatched("m1")
+
+        assertTrue(pairRepository.advancePairStreakCalls.isEmpty())
+    }
+
+    @Test
+    fun `findTonightsMatch generates today's match for the current pair`() {
+        val viewModel = viewModel(alice)
+
+        viewModel.findTonightsMatch()
+
+        assertEquals(listOf("p1"), pairRepository.generateTodaysMatchCalls)
+    }
+
+    @Test
+    fun `findTonightsMatch is a no-op with no session, rather than crashing on a null pair`() {
+        val viewModel = viewModel(session = null)
+
+        viewModel.findTonightsMatch()
+
+        assertTrue(pairRepository.generateTodaysMatchCalls.isEmpty())
     }
 
     @Test

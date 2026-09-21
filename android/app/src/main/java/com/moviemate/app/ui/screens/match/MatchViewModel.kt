@@ -3,6 +3,7 @@ package com.moviemate.app.ui.screens.match
 import androidx.lifecycle.viewModelScope
 import com.moviemate.app.data.model.Film
 import com.moviemate.app.data.model.Match
+import com.moviemate.app.data.model.Pair as PairModel
 import com.moviemate.app.data.repository.FilmRepository
 import com.moviemate.app.data.repository.PairRepository
 import com.moviemate.app.data.session.Session
@@ -39,6 +40,16 @@ class MatchViewModel(
      * pair document rather than being assumed.
      */
     private var session: Session? = null
+
+    /**
+     * Cached once true, per pair. isBothOnboarded() is a live aggregate-count
+     * read (see PairRepository) — re-running it on every unrelated pair/match
+     * snapshot event, which fire often once matches start generating, would be
+     * a redundant read for a fact that can't un-become true. Mirrors
+     * web/app.js's mt.bothOnboardedConfirmed.
+     */
+    private var bothOnboardedPairId: String? = null
+    private var bothOnboardedConfirmed = false
 
     /**
      * One upstream collector for the session, shared by both consumers below.
@@ -97,6 +108,14 @@ class MatchViewModel(
             return
         }
 
+        val pairId = current.pairId
+        val pair = current.pair
+        val bothOnboarded = if (pairId != null && pair != null) {
+            resolveBothOnboarded(pairId, pair)
+        } else {
+            false
+        }
+
         val film = match?.filmId?.takeIf { it.isNotBlank() }?.let { filmRepository.getFilm(it) }
         val shortlistFilms: Map<String, Film> = if (match?.fallbackUnlocked == true) {
             filmRepository.getFilms(match.shortlist.map { it.filmId })
@@ -104,7 +123,26 @@ class MatchViewModel(
             emptyMap()
         }
 
-        _state.value = UiState.Content(matchPhaseOf(match, current, film, shortlistFilms))
+        _state.value = UiState.Content(matchPhaseOf(match, current, film, bothOnboarded, shortlistFilms))
+    }
+
+    private suspend fun resolveBothOnboarded(pairId: String, pair: PairModel): Boolean {
+        if (bothOnboardedPairId != pairId) {
+            bothOnboardedPairId = pairId
+            bothOnboardedConfirmed = false
+        }
+        if (!bothOnboardedConfirmed) {
+            bothOnboardedConfirmed = pairRepository.isBothOnboarded(pairId, pair)
+        }
+        return bothOnboardedConfirmed
+    }
+
+    /** "Find tonight's movie" / "Find another match" — shared no-Blaze trigger. */
+    fun findTonightsMatch() {
+        val current = session ?: return
+        val pairId = current.pairId ?: return
+        val pair = current.pair ?: return
+        runAction { pairRepository.generateTodaysMatch(pairId, pair) }
     }
 
     /** "We're in" — sets only this user's own flag. */
@@ -144,11 +182,25 @@ class MatchViewModel(
      *
      * Requiring both to tap would be friction for its own sake: it records
      * something that already happened rather than asking for a decision.
+     *
+     * Advancing the streak (the no-Blaze fallback for onMatchUpdate's
+     * updateStreak) runs only after the confirm write succeeds, and is
+     * best-effort from there — a failure advancing it shouldn't undo, or even
+     * report as failed, a confirmation that already landed.
      */
     fun confirmWatched(matchId: String) {
         val current = session ?: return
         val pairId = current.pairId ?: return
-        runAction { pairRepository.confirmWatched(pairId, matchId, current.uid) }
+        val pair = current.pair
+        runAction(
+            onSuccess = {
+                if (pair != null) {
+                    pairRepository.advancePairStreak(pairId, pair, System.currentTimeMillis())
+                }
+            },
+        ) {
+            pairRepository.confirmWatched(pairId, matchId, current.uid)
+        }
     }
 
     private companion object {

@@ -28,7 +28,9 @@ import com.moviemate.app.ui.theme.MovieMateTheme
 fun RoutingScreen(onResolved: (String) -> Unit) {
     val graph = LocalAppGraph.current
     val viewModel: AppEntryViewModel = viewModel(
-        factory = factoryOf { AppEntryViewModel(graph.sessionStore, graph.onboardingDraftStore) },
+        factory = factoryOf {
+            AppEntryViewModel(graph.sessionStore, graph.onboardingDraftStore, graph.pairRepository)
+        },
     )
     val entry by viewModel.entry.collectAsStateWithLifecycle()
 

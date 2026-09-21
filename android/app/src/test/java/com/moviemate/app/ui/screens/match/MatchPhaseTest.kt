@@ -23,13 +23,15 @@ class MatchPhaseTest {
 
     private val stamp = Timestamp(1_700_000_000L, 0)
 
-    // Both onboarded by default: every test below is about the match lifecycle
-    // that only starts once matches are actually being generated. The separate
-    // pre-match wait has its own tests further down.
+    // aBothOnboarded on the pair itself is irrelevant here — matchPhaseOf takes
+    // bothOnboarded as an explicit, separately-computed argument (see its doc
+    // comment) — every test below passes bothOnboarded = true and is about the
+    // match lifecycle that only starts once matches are actually being
+    // generated. The separate pre-match wait has its own tests further down.
     private fun sessionFor(uid: String) = Session(
         uid = uid,
         user = User(uid = uid, pairId = "p1"),
-        pair = Pair(id = "p1", userA = "alice", userB = "bob", aBothOnboarded = true),
+        pair = Pair(id = "p1", userA = "alice", userB = "bob"),
     )
 
     private val alice = sessionFor("alice")
@@ -65,7 +67,7 @@ class MatchPhaseTest {
 
     @Test
     fun `no document means the day has not started`() {
-        assertEquals(MatchPhase.NotYet, matchPhaseOf(null, alice, film = null))
+        assertEquals(MatchPhase.NotYet, matchPhaseOf(null, alice, film = null, bothOnboarded = true))
     }
 
     @Test
@@ -74,19 +76,20 @@ class MatchPhaseTest {
             match(filmId = "", status = "dismissed", noMatchesReason = "Nothing scored high enough."),
             alice,
             film = null,
+            bothOnboarded = true,
         )
-        assertEquals(MatchPhase.NoMatches("Nothing scored high enough."), phase)
+        assertEquals(MatchPhase.NoMatches("Nothing scored high enough.", canRetry = true), phase)
     }
 
     @Test
     fun `commit flags are read from the caller's own side`() {
         val onlyAliceIn = match(commitA = true)
 
-        val forAlice = matchPhaseOf(onlyAliceIn, alice, film = null) as MatchPhase.Suggested
+        val forAlice = matchPhaseOf(onlyAliceIn, alice, film = null, bothOnboarded = true) as MatchPhase.Suggested
         assertTrue(forAlice.iCommitted)
         assertFalse(forAlice.partnerCommitted)
 
-        val forBob = matchPhaseOf(onlyAliceIn, bob, film = null) as MatchPhase.Suggested
+        val forBob = matchPhaseOf(onlyAliceIn, bob, film = null, bothOnboarded = true) as MatchPhase.Suggested
         assertFalse(forBob.iCommitted)
         assertTrue(forBob.partnerCommitted)
     }
@@ -97,6 +100,7 @@ class MatchPhaseTest {
             match(commitA = true, commitB = true, bothConfirmedAt = stamp),
             alice,
             film = null,
+            bothOnboarded = true,
         )
         assertTrue(phase is MatchPhase.Confirmed)
     }
@@ -118,6 +122,7 @@ class MatchPhaseTest {
             ),
             alice,
             film = null,
+            bothOnboarded = true,
         )
         assertTrue(phase is MatchPhase.Watched)
     }
@@ -133,6 +138,7 @@ class MatchPhaseTest {
             match(status = "dismissed", fallbackUnlocked = true, shortlist = options),
             alice,
             film = null,
+            bothOnboarded = true,
         ) as MatchPhase.Fallback
 
         assertEquals(options, phase.options)
@@ -149,13 +155,14 @@ class MatchPhaseTest {
             match(status = "dismissed", fallbackUnlocked = false),
             alice,
             film = null,
+            bothOnboarded = true,
         )
         assertTrue(phase is MatchPhase.NoMatches)
     }
 
     @Test
     fun `the attempt number carries through for the sequence label`() {
-        val phase = matchPhaseOf(match(attemptNumber = 3), alice, film = null)
+        val phase = matchPhaseOf(match(attemptNumber = 3), alice, film = null, bothOnboarded = true)
             as MatchPhase.Suggested
         assertEquals(3, phase.attemptNumber)
     }
@@ -165,11 +172,11 @@ class MatchPhaseTest {
         val session = Session(
             uid = "alice",
             user = User(uid = "alice", pairId = "p1", name = "Alice"),
-            pair = Pair(id = "p1", userA = "alice", userB = null, aBothOnboarded = false, inviteCode = "ABC123"),
+            pair = Pair(id = "p1", userA = "alice", userB = null, inviteCode = "ABC123"),
         )
         // A match document should never exist in this state, but the wait must
         // win regardless of what happens to be sitting in Firestore.
-        val phase = matchPhaseOf(match(), session, film = null) as MatchPhase.WaitingForPartner
+        val phase = matchPhaseOf(match(), session, film = null, bothOnboarded = false) as MatchPhase.WaitingForPartner
         assertEquals(PartnerWaitStage.NoPartner, phase.stage)
         assertEquals("Alice", phase.myName)
         assertEquals("ABC123", phase.inviteCode)
@@ -181,16 +188,50 @@ class MatchPhaseTest {
         val session = Session(
             uid = "alice",
             user = User(uid = "alice", pairId = "p1"),
-            pair = Pair(id = "p1", userA = "alice", userB = "bob", aBothOnboarded = false),
+            pair = Pair(id = "p1", userA = "alice", userB = "bob"),
         )
-        val phase = matchPhaseOf(null, session, film = null) as MatchPhase.WaitingForPartner
+        val phase = matchPhaseOf(null, session, film = null, bothOnboarded = false) as MatchPhase.WaitingForPartner
         assertEquals(PartnerWaitStage.PartnerRating, phase.stage)
     }
 
     @Test
     fun `bothOnboarded clears the wait even before today's match exists`() {
-        // alice's pair already has aBothOnboarded = true — this is what
-        // `no document means the day has not started` is actually pinning down.
-        assertEquals(MatchPhase.NotYet, matchPhaseOf(null, alice, film = null))
+        assertEquals(MatchPhase.NotYet, matchPhaseOf(null, alice, film = null, bothOnboarded = true))
+    }
+
+    @Test
+    fun `a terminal match can be retried once the 20h gate has passed`() {
+        val longAgo = Pair(
+            id = "p1",
+            userA = "alice",
+            userB = "bob",
+            lastMatchGeneratedAt = Timestamp(System.currentTimeMillis() / 1000 - 21 * 60 * 60, 0),
+        )
+        val session = alice.copy(pair = longAgo)
+        val phase = matchPhaseOf(
+            match(status = "dismissed", filmId = ""),
+            session,
+            film = null,
+            bothOnboarded = true,
+        ) as MatchPhase.NoMatches
+        assertTrue(phase.canRetry)
+    }
+
+    @Test
+    fun `a terminal match cannot be retried inside the 20h gate`() {
+        val recentPair = Pair(
+            id = "p1",
+            userA = "alice",
+            userB = "bob",
+            lastMatchGeneratedAt = Timestamp(System.currentTimeMillis() / 1000, 0),
+        )
+        val session = alice.copy(pair = recentPair)
+        val phase = matchPhaseOf(
+            match(status = "dismissed", filmId = ""),
+            session,
+            film = null,
+            bothOnboarded = true,
+        ) as MatchPhase.NoMatches
+        assertFalse(phase.canRetry)
     }
 }

@@ -78,9 +78,9 @@ fun MatchScreen(
         UiStateHost(state = state) { phase ->
             Column(verticalArrangement = Arrangement.spacedBy(Space.stack)) {
                 when (phase) {
-                    MatchPhase.NotYet -> Headline(
-                        title = "NOT YET",
-                        body = "Your pick lands at 9am. One film, chosen for both of you.",
+                    MatchPhase.NotYet -> NotYetPhase(
+                        busy = action.isRunning,
+                        onFindMatch = { viewModel.findTonightsMatch() },
                     )
 
                     is MatchPhase.WaitingForPartner -> WaitingForPartnerPhase(
@@ -88,9 +88,10 @@ fun MatchScreen(
                         onShareAgain = { context.shareInviteCode(phase.inviteCode.orEmpty()) },
                     )
 
-                    is MatchPhase.NoMatches -> Headline(
-                        title = "NO PICK TODAY",
-                        body = phase.reason,
+                    is MatchPhase.NoMatches -> NoMatchesPhase(
+                        phase = phase,
+                        busy = action.isRunning,
+                        onRetry = { viewModel.findTonightsMatch() },
                     )
 
                     is MatchPhase.Suggested -> SuggestedPhase(
@@ -115,7 +116,9 @@ fun MatchScreen(
 
                     is MatchPhase.Watched -> WatchedPhase(
                         phase = phase,
+                        busy = action.isRunning,
                         onRate = { onRateWatched(phase.match.id) },
+                        onRetry = { viewModel.findTonightsMatch() },
                     )
                 }
 
@@ -147,6 +150,32 @@ private fun Headline(title: String, body: String) {
     val colors = MovieMateTheme.colors
     Text(title, style = MovieMateType.megaHeadline, color = colors.textAccent)
     Text(body, style = MovieMateType.body, color = colors.textSecondary)
+}
+
+/**
+ * No match document yet — the no-Blaze fallback for the 9am scheduled
+ * function this app has never had Blaze to run (see PairRepository.
+ * generateTodaysMatch's doc comment). Always retryable: this phase only
+ * shows before the pair's very first match, so there is no prior
+ * lastMatchGeneratedAt for the 20h gate to block on.
+ */
+@Composable
+private fun NotYetPhase(busy: Boolean, onFindMatch: () -> Unit) {
+    Headline(
+        title = "NOT YET",
+        body = "One film, chosen for both of you — whenever you're ready to look.",
+    )
+    Spacer(Modifier.height(Space.stackTight))
+    PrimaryCta(label = "Find tonight's movie", onClick = onFindMatch, enabled = !busy, tone = CtaTone.Reward)
+}
+
+@Composable
+private fun NoMatchesPhase(phase: MatchPhase.NoMatches, busy: Boolean, onRetry: () -> Unit) {
+    Headline(title = "NO PICK TODAY", body = phase.reason)
+    if (phase.canRetry) {
+        Spacer(Modifier.height(Space.stackTight))
+        SecondaryCta(label = "Find another match", onClick = { if (!busy) onRetry() })
+    }
 }
 
 /**
@@ -472,7 +501,7 @@ private fun ConfirmedPhase(
 }
 
 @Composable
-private fun WatchedPhase(phase: MatchPhase.Watched, onRate: () -> Unit) {
+private fun WatchedPhase(phase: MatchPhase.Watched, busy: Boolean, onRate: () -> Unit, onRetry: () -> Unit) {
     val colors = MovieMateTheme.colors
 
     Text("HOW WAS IT?", style = MovieMateType.megaHeadline, color = colors.textAccent)
@@ -489,6 +518,11 @@ private fun WatchedPhase(phase: MatchPhase.Watched, onRate: () -> Unit) {
     Spacer(Modifier.height(Space.stack))
 
     PrimaryCta(label = "Rate it", onClick = onRate, tone = CtaTone.Reward)
+
+    if (phase.canRetry) {
+        Spacer(Modifier.height(Space.stackTight))
+        SecondaryCta(label = "Find another match", onClick = { if (!busy) onRetry() })
+    }
 }
 
 private val POSTER_THUMB_WIDTH = 72.dp

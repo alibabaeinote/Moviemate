@@ -42,11 +42,6 @@ data class Session(
     /** The partner has taken the second seat — they may still be rating. */
     val partnerJoined: Boolean get() = pair?.userB != null
 
-    /** Server-set: both sides finished onboarding, so daily matches will start. */
-    val bothOnboarded: Boolean get() = pair?.aBothOnboarded == true
-
-    val onboardingComplete: Boolean get() = user?.onboardingComplete == true
-
     val ratingCount: Int get() = user?.ratingCount ?: 0
 
     val displayName: String? get() = user?.name?.takeIf { it.isNotBlank() }

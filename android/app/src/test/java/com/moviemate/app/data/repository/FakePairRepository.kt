@@ -68,6 +68,15 @@ class FakePairRepository : PairRepository {
     var getOnboardingFilmsResult: Result<List<DeckFilm>> = Result.success(emptyList())
     val requestedGenreIds = mutableListOf<List<Int>>()
 
+    /** Defaults to "done" so tests that don't care about onboarding don't need to set it. */
+    var isBothOnboardedResult = true
+    var onboardingRatingCountResult = 10
+    var generateTodaysMatchResult: Result<Unit> = Result.success(Unit)
+    val generateTodaysMatchCalls = mutableListOf<String>()
+    var advancePairStreakResult: Result<Unit> = Result.success(Unit)
+    val advancePairStreakCalls = mutableListOf<Long>()
+    var confirmWatchedResult: Result<Unit> = Result.success(Unit)
+
     fun setUser(uid: String, user: User?) {
         userFlows.getOrPut(uid) { MutableStateFlow(null) }.value = user
     }
@@ -102,6 +111,20 @@ class FakePairRepository : PairRepository {
     }
 
     override suspend fun searchFilms(query: String): Result<List<DeckFilm>> = searchFilmsResult
+
+    override suspend fun onboardingRatingCount(pairId: String, uid: String): Int = onboardingRatingCountResult
+
+    override suspend fun isBothOnboarded(pairId: String, pair: Pair): Boolean = isBothOnboardedResult
+
+    override suspend fun generateTodaysMatch(pairId: String, pair: Pair): Result<Unit> {
+        generateTodaysMatchCalls.add(pairId)
+        return generateTodaysMatchResult
+    }
+
+    override suspend fun advancePairStreak(pairId: String, pair: Pair, watchedAtMillis: Long): Result<Unit> {
+        advancePairStreakCalls.add(watchedAtMillis)
+        return advancePairStreakResult
+    }
 
     override fun observeUser(uid: String): Flow<User?> =
         userFlows.getOrPut(uid) { MutableStateFlow(null) }
@@ -146,7 +169,7 @@ class FakePairRepository : PairRepository {
 
     override suspend fun confirmWatched(pairId: String, matchId: String, uid: String): Result<Unit> {
         confirmedWatched.add(ConfirmWatchedCall(pairId, matchId, uid))
-        return Result.success(Unit)
+        return confirmWatchedResult
     }
 
     override suspend fun rejectMatch(pairId: String, matchId: String): Result<Unit> {

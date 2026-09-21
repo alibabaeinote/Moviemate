@@ -19,53 +19,77 @@ class AppEntryViewModelTest {
     private fun session(
         uid: String = "u1",
         pairId: String? = null,
-        onboardingComplete: Boolean = false,
         pair: Pair? = null,
     ) = Session(
         uid = uid,
-        user = User(uid = uid, pairId = pairId, onboardingComplete = onboardingComplete),
+        user = User(uid = uid, pairId = pairId),
         pair = pair,
     )
 
     private fun pair(
         userA: String = "u1",
         userB: String? = "u2",
-        bothOnboarded: Boolean = false,
     ) = Pair(
         id = "p1",
         userA = userA,
         userB = userB,
         inviteCode = "ABC123",
-    ).also { it.aBothOnboarded = bothOnboarded }
+    )
 
     @Test
     fun `signed out goes to welcome`() {
         assertEquals(
             Routes.WELCOME,
-            AppEntryViewModel.startRouteFor(session = null, draftCount = 0),
+            AppEntryViewModel.startRouteFor(
+                session = null,
+                draftCount = 0,
+                ownOnboardingComplete = false,
+                bothOnboarded = false,
+            ),
         )
     }
 
     @Test
     fun `a live pair goes straight to the match`() {
-        val state = session(pairId = "p1", onboardingComplete = true, pair = pair(bothOnboarded = true))
-        assertEquals(Routes.MATCH, AppEntryViewModel.startRouteFor(state, draftCount = 0))
+        val state = session(pairId = "p1", pair = pair())
+        assertEquals(
+            Routes.MATCH,
+            AppEntryViewModel.startRouteFor(
+                state,
+                draftCount = 0,
+                ownOnboardingComplete = true,
+                bothOnboarded = true,
+            ),
+        )
     }
 
     @Test
     fun `own onboarding done but partner still rating still goes to Match`() {
         // The Match tab shows the "waiting on partner" copy itself
         // (MatchPhase.WaitingForPartner) — there is no separate holding screen.
-        val state = session(pairId = "p1", onboardingComplete = true, pair = pair())
-        assertEquals(Routes.MATCH, AppEntryViewModel.startRouteFor(state, draftCount = 0))
+        val state = session(pairId = "p1", pair = pair())
+        assertEquals(
+            Routes.MATCH,
+            AppEntryViewModel.startRouteFor(
+                state,
+                draftCount = 0,
+                ownOnboardingComplete = true,
+                bothOnboarded = false,
+            ),
+        )
     }
 
     @Test
     fun `paired but still rating returns to the deck`() {
-        val state = session(pairId = "p1", onboardingComplete = false, pair = pair())
+        val state = session(pairId = "p1", pair = pair())
         assertEquals(
             Routes.ONBOARDING_RATE,
-            AppEntryViewModel.startRouteFor(state, draftCount = 0),
+            AppEntryViewModel.startRouteFor(
+                state,
+                draftCount = 0,
+                ownOnboardingComplete = false,
+                bothOnboarded = false,
+            ),
         )
     }
 
@@ -76,6 +100,8 @@ class AppEntryViewModelTest {
             AppEntryViewModel.startRouteFor(
                 session(),
                 draftCount = OnboardingConfig.RATING_TARGET,
+                ownOnboardingComplete = false,
+                bothOnboarded = false,
             ),
         )
     }
@@ -87,23 +113,30 @@ class AppEntryViewModelTest {
             AppEntryViewModel.startRouteFor(
                 session(),
                 draftCount = OnboardingConfig.RATING_TARGET - 1,
+                ownOnboardingComplete = false,
+                bothOnboarded = false,
             ),
         )
     }
 
     /**
-     * The server's flag wins over anything the client can infer. A pair can be
-     * live while this user's own `onboardingComplete` has not propagated yet,
-     * and sending them to the deck in that moment would be wrong.
+     * The live bothOnboarded check wins over anything the client can infer
+     * about its own side. A pair can be live while this user's own onboarding
+     * count has not been re-read yet, and sending them to the deck in that
+     * moment would be wrong.
      */
     @Test
     fun `bothOnboarded outranks a stale local onboarding flag`() {
-        val state = session(
-            pairId = "p1",
-            onboardingComplete = false,
-            pair = pair(bothOnboarded = true),
+        val state = session(pairId = "p1", pair = pair())
+        assertEquals(
+            Routes.MATCH,
+            AppEntryViewModel.startRouteFor(
+                state,
+                draftCount = 0,
+                ownOnboardingComplete = false,
+                bothOnboarded = true,
+            ),
         )
-        assertEquals(Routes.MATCH, AppEntryViewModel.startRouteFor(state, draftCount = 0))
     }
 
     @Test

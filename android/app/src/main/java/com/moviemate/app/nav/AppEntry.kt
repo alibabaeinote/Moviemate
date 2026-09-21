@@ -2,6 +2,7 @@ package com.moviemate.app.nav
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moviemate.app.data.repository.PairRepository
 import com.moviemate.app.data.session.OnboardingDraftStore
 import com.moviemate.app.data.session.Session
 import com.moviemate.app.data.session.SessionStore
@@ -29,6 +30,7 @@ sealed interface AppEntry {
 class AppEntryViewModel(
     sessionStore: SessionStore,
     private val draftStore: OnboardingDraftStore,
+    private val pairRepository: PairRepository,
 ) : ViewModel() {
 
     private val _entry = MutableStateFlow<AppEntry>(AppEntry.Undecided)
@@ -43,10 +45,29 @@ class AppEntryViewModel(
                 sessionStore.session.first { it == null || it.isSettled }
             } ?: sessionStore.session.first()
 
+            // users.onboardingComplete/pairs.aBothOnboarded are only ever set
+            // by the Blaze-only onRatingComplete trigger, which has never run
+            // on this project — live aggregate counts instead (see
+            // PairRepository.onboardingRatingCount/isBothOnboarded).
+            val pairId = session?.pairId
+            val pair = session?.pair
+            val ownOnboardingComplete = if (session != null && pairId != null) {
+                pairRepository.onboardingRatingCount(pairId, session.uid) >= OnboardingConfig.RATING_TARGET
+            } else {
+                false
+            }
+            val bothOnboarded = if (pairId != null && pair != null) {
+                pairRepository.isBothOnboarded(pairId, pair)
+            } else {
+                false
+            }
+
             // Decided once. After this the NavController owns navigation —
             // recomputing on every session change would yank the user out of
             // whatever screen they are on the moment their partner joins.
-            _entry.value = AppEntry.Route(startRouteFor(session, draftStore.count()))
+            _entry.value = AppEntry.Route(
+                startRouteFor(session, draftStore.count(), ownOnboardingComplete, bothOnboarded),
+            )
         }
     }
 
@@ -62,18 +83,28 @@ class AppEntryViewModel(
          * Resume the user where onboarding actually left off.
          *
          * Once this user's own onboarding is done, the destination is always
-         * the Match tab, whether or not the server has flipped `bothOnboarded`
-         * yet — the Match screen itself shows the right "waiting on partner"
-         * copy for as long as that takes (see MatchPhase.WaitingForPartner).
-         * There is no separate holding screen to route to instead.
+         * the Match tab, whether or not [bothOnboarded] is true yet — the
+         * Match screen itself shows the right "waiting on partner" copy for
+         * as long as that takes (see MatchPhase.WaitingForPartner). There is
+         * no separate holding screen to route to instead.
+         *
+         * [ownOnboardingComplete] and [bothOnboarded] are passed in live —
+         * see the caller above — rather than read off `session.onboardingComplete`/
+         * `session.bothOnboarded`, which this function used to trust and which
+         * would never actually flip without Blaze.
          */
-        fun startRouteFor(session: Session?, draftCount: Int): String = when {
+        fun startRouteFor(
+            session: Session?,
+            draftCount: Int,
+            ownOnboardingComplete: Boolean,
+            bothOnboarded: Boolean,
+        ): String = when {
             session == null -> Routes.WELCOME
 
             // Own onboarding done, paired or not yet fully matched — Match
             // itself resolves the rest.
-            session.isPaired && session.onboardingComplete -> Routes.MATCH
-            session.bothOnboarded -> Routes.MATCH
+            session.isPaired && ownOnboardingComplete -> Routes.MATCH
+            bothOnboarded -> Routes.MATCH
 
             // Paired but still rating.
             session.isPaired -> Routes.ONBOARDING_RATE

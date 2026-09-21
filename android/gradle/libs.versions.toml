@@ -16,6 +16,7 @@ googleid = "1.1.1"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
 espresso = "3.6.1"
+okhttp = "4.12.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -60,6 +61,12 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+# The no-Blaze fallback (see PairRepository's TMDB client): onboarding
+# genres/films/search and the daily match's candidate pool used to go
+# through Cloud Functions callables, which require the Blaze plan to deploy
+# at all. OkHttp alone (no Retrofit, no Gson) is enough for the handful of
+# TMDB endpoints this needs; org.json (built into Android) handles parsing.
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

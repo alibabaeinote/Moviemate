@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,18 @@ plugins {
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.crashlytics)
 }
+
+// TMDB v3 API key — same no-Blaze rationale as web/tmdb-config.js: this repo
+// is public, so the key lives in local.properties (already gitignored, same
+// file the Android Gradle Plugin itself uses for the SDK path) rather than
+// committed anywhere. A missing key becomes an empty BuildConfig string
+// rather than a build failure, so a fresh checkout still compiles — TmdbApi
+// surfaces a clear error at call time instead (see TmdbApi.kt).
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val tmdbApiKey: String = localProperties.getProperty("TMDB_API_KEY") ?: ""
 
 android {
     namespace = "com.moviemate.app"
@@ -17,6 +31,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -93,6 +109,7 @@ dependencies {
     implementation(libs.google.id)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -461,4 +461,9 @@ data class DeckFilm(
     val genres: List<String>,
     val releaseYear: Int,
     val overview: String,
+    // Unused by the onboarding/search UI, which predates this field — added
+    // so the same DeckFilm shape also works as a scoring candidate for the
+    // no-Blaze daily match (see data.remote.TmdbClient.getMatchCandidates
+    // and data.recommendation.scoreCandidate).
+    val tmdbRating: Double = 0.0,
 )

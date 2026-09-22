@@ -252,6 +252,13 @@ async function maybeDecideInitialRoute() {
   const pairId = latestUserData.pairId;
   routeDecided = true;
   const section = await decideInitialSection(latestUserData, pairId);
+  // The profile card (name + sign out) is only the very first, momentary
+  // step — it's for the one-time "here's how I want to be known to my
+  // partner" edit right after signing in, not a permanent header sitting
+  // above onboarding/pairing/match. Hide it the instant routing lands
+  // somewhere; editing the name again is a "sign out and back in" affair
+  // for now, same as this client not having a separate profile screen yet.
+  els.signedIn.hidden = true;
   showSection(section);
   if (section === "onboarding") initOnboarding();
   if (section === "match") goToMatch();

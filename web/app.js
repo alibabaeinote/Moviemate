@@ -3,6 +3,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   getAdditionalUserInfo,
@@ -313,11 +315,26 @@ onAuthStateChanged(auth, (user) => {
   watchUserDoc(user.uid);
 });
 
+// Mobile browsers (Safari on iOS especially) frequently tear down the
+// signInWithPopup window before the OAuth round trip finishes — Firebase
+// surfaces that as auth/popup-closed-by-user even though the person never
+// touched anything. signInWithRedirect sidesteps the popup entirely (full
+// navigation to Google and back), which is Firebase's own recommendation
+// for mobile web. Desktop keeps the popup: it's the nicer UX there and
+// doesn't have this failure mode.
+const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 els.signInBtn.addEventListener("click", async () => {
   showStatus(els.status, "", false);
   els.signInBtn.disabled = true;
   els.signInBtn.textContent = "Opening Google sign-in…";
   try {
+    if (isMobileBrowser) {
+      // Navigates away; the result is picked up by getRedirectResult()
+      // below once Google sends the browser back here.
+      await signInWithRedirect(auth, new GoogleAuthProvider());
+      return;
+    }
     const result = await signInWithPopup(auth, new GoogleAuthProvider());
     const isNewUser = getAdditionalUserInfo(result)?.isNewUser ?? false;
     await ensureUserDocument(result.user, isNewUser);
@@ -328,6 +345,19 @@ els.signInBtn.addEventListener("click", async () => {
     els.signInBtn.textContent = "Continue with Google";
   }
 });
+
+// Completes the signInWithRedirect flow above once Google sends the
+// browser back to this page. A no-op (resolves to null) on every load
+// that isn't returning from a redirect, including the very first visit.
+getRedirectResult(auth)
+  .then(async (result) => {
+    if (!result) return;
+    const isNewUser = getAdditionalUserInfo(result)?.isNewUser ?? false;
+    await ensureUserDocument(result.user, isNewUser);
+  })
+  .catch((err) => {
+    showStatus(els.status, permissionHint(err) || `Sign-in failed: ${err.message}`, true);
+  });
 
 els.signOutBtn.addEventListener("click", () => signOut(auth));
 

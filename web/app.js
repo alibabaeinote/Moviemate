@@ -7,7 +7,6 @@ import {
   getRedirectResult,
   signOut,
   onAuthStateChanged,
-  getAdditionalUserInfo,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore,
@@ -202,8 +201,21 @@ async function flushDraftIntoPair(pairId, uid) {
    PROFILE (sign-in, profile doc, save)
    ============================================================ */
 
-async function ensureUserDocument(user, isNewUser) {
-  if (!isNewUser) return;
+/**
+ * Creates users/{uid} the first time this account is seen — checked against
+ * Firestore directly rather than trusting Firebase Auth's isNewUser flag.
+ * isNewUser answers "has this Auth account ever signed in to this Firebase
+ * project", not "does its Firestore profile exist" — an account that once
+ * signed in but never actually got its doc written (e.g. a create that
+ * failed, or a doc removed by hand) would read isNewUser === false forever
+ * after, be skipped here on every future sign-in, and be stuck on this
+ * profile card permanently since watchUserDoc's snapshot never resolves to
+ * anything. A direct existence check heals that on the next sign-in.
+ */
+async function ensureUserDocument(user) {
+  const ref = doc(db, "users", user.uid);
+  const existing = await getDoc(ref);
+  if (existing.exists()) return;
   const profile = {
     uid: user.uid,
     name: (user.displayName || "").trim(),
@@ -218,7 +230,7 @@ async function ensureUserDocument(user, isNewUser) {
     notificationSettings: { dailyMatch: true, partnerActivity: true, reminders: true },
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   };
-  await setDoc(doc(db, "users", user.uid), profile);
+  await setDoc(ref, profile);
 }
 
 function renderAvatar(name, photoUrl) {
@@ -411,8 +423,7 @@ els.signInBtn.addEventListener("click", async () => {
       return;
     }
     const result = await signInWithPopup(auth, new GoogleAuthProvider());
-    const isNewUser = getAdditionalUserInfo(result)?.isNewUser ?? false;
-    await ensureUserDocument(result.user, isNewUser);
+    await ensureUserDocument(result.user);
   } catch (err) {
     showStatus(els.status, permissionHint(err) || `Sign-in failed: ${err.message}`, true);
   } finally {
@@ -427,8 +438,7 @@ els.signInBtn.addEventListener("click", async () => {
 getRedirectResult(auth)
   .then(async (result) => {
     if (!result) return;
-    const isNewUser = getAdditionalUserInfo(result)?.isNewUser ?? false;
-    await ensureUserDocument(result.user, isNewUser);
+    await ensureUserDocument(result.user);
   })
   .catch((err) => {
     showStatus(els.status, permissionHint(err) || `Sign-in failed: ${err.message}`, true);

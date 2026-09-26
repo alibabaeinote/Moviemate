@@ -46,6 +46,15 @@ rules_version = '2';
 //      paths (commitsOnlyForSelf, confirmsWatchedOnly) from before this app
 //      had a server at all, so the mutual-commit and watched-confirmation
 //      steps need no new rule surface — only generation and streak do.
+//   f. Multi-friend support: a user can now belong to more than one /pairs
+//      document at once (users/{uid}.pairIds, a plain array — see the note
+//      on /users' update rule). /pairs itself is untouched: it's still a
+//      strict two-person document, a user just has more than one of them.
+//      New here: either pair member may delete the pair document, and its
+//      ratings/matches subcollections (watchlist already allowed member
+//      deletes) — "remove this friend" deletes the history shared only with
+//      them, unilaterally, the same as leaving a group chat doesn't need the
+//      other side's consent.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -91,6 +100,19 @@ service cloud.firestore {
       // fallback for the Spark-plan path, not a replacement for the
       // Cloud-Functions one: either can set this field, and both produce
       // the same document shape.
+      //
+      // 'pairIds'/'activePairId' (multi-friend support, ALI-empty-nest):
+      // deliberately plain self-serve fields, not access-controlled the way
+      // 'pairId' is. They're a personal index of "which pairs am I in" for
+      // this client's own friends list — the real authority for whether a
+      // read/write against a given pair is allowed is always isPairMember()
+      // against that pair's own userA/userB, checked independently on every
+      // /pairs/{pairId} rule below. A user inflating their own pairIds with
+      // a pair they don't actually belong to gains nothing: every read of
+      // that pair's data still gets denied. So there's no need for
+      // addsPairId()/removesPairId() rule machinery — arrayUnion to add a
+      // newly created/joined pair, arrayRemove (plus clearing activePairId)
+      // to leave one, both as ordinary self-serve writes.
       allow update: if isSignedIn()
         && request.auth.uid == userId
         && (
@@ -101,7 +123,9 @@ service cloud.firestore {
             'fcmTokenUpdatedAt',
             'notificationSettings',
             'lastActiveAt',
-            'timezone'
+            'timezone',
+            'pairIds',
+            'activePairId'
           ])
           || claimsOwnPair()
         );
@@ -142,7 +166,17 @@ service cloud.firestore {
           joinsOpenSeat()
           || (isPairMember(resource.data) && (updatesLastMatchGeneratedAt() || advancesStreak()))
         );
-      allow delete: if false;
+
+      // Multi-friend support: removing a friend deletes the shared pair —
+      // ratings, matches and watchlist are all scoped under this document,
+      // so either member can end it (and the history that lives only here)
+      // without needing the other's confirmation, same as either side of a
+      // group chat can leave and neither can stop the other's own copy of
+      // being removed. The other member's users/{uid}.pairIds still lists
+      // this id until their own client next loads and self-heals (see
+      // web/app.js) — there is no Cloud Function here to notify them
+      // immediately, only their own next read finding this doc gone.
+      allow delete: if isPairMember(resource.data);
 
       // ---------- pairs/{pairId}/ratings ----------
       // Convention: document id is "{userId}_{filmId}" so a repeat rating is an
@@ -167,7 +201,10 @@ service cloud.firestore {
           && request.resource.data.score >= 0
           && request.resource.data.score <= 100;
 
-        allow delete: if false;
+        // Multi-friend support: only reachable as part of deleting the whole
+        // pair above (removing a friend wipes the shared rating history with
+        // them) — the app never deletes a single rating on its own.
+        allow delete: if isPairMember(pairData(pairId));
       }
 
       // ---------- pairs/{pairId}/matches ----------
@@ -186,7 +223,9 @@ service cloud.firestore {
         // billed document read, and the previous form issued two per write.
         allow update: if canUpdateMatch(pairId);
 
-        allow delete: if false;
+        // Same as ratings/{ratingId} above: only ever exercised while
+        // removing this friend and their shared match history.
+        allow delete: if isPairMember(pairData(pairId));
       }
 
       // ---------- pairs/{pairId}/watchlist ----------

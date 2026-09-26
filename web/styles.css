@@ -245,3 +245,65 @@ h2 {
 [hidden] {
   display: none !important;
 }
+
+/* ---------- friends list ---------- */
+#friendsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1.5px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--ground);
+}
+.friend-open {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: none;
+  border: none;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.friend-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+.friend-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.friend-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+.friend-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+.friend-status.is-action {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.friend-remove {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.friend-remove:hover {
+  color: var(--decorative);
+}

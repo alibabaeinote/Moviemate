@@ -76,12 +76,21 @@
     <div class="status" id="obStatus"></div>
   </div>
 
+  <div class="card" id="friends" hidden>
+    <h2>Your friends</h2>
+    <p class="sub" id="friendsEmpty">Add a friend to start matching movies together.</p>
+    <div id="friendsList"></div>
+    <button class="btn-primary" id="addFriendBtn" type="button">Add a friend</button>
+    <div class="status" id="friendsStatus"></div>
+  </div>
+
   <div class="card" id="pairing" hidden>
     <div id="pairingChoice">
-      <h2>Find your partner</h2>
+      <h2>Add a friend</h2>
       <p class="sub">Invite them with a code, or enter theirs.</p>
       <button class="btn-primary" id="getInviteBtn" type="button">Get an invite code</button>
       <button class="btn-secondary" id="showJoinBtn" type="button">I have a code</button>
+      <button class="btn-secondary" id="backToFriendsFromChoiceBtn" type="button" hidden>Back to friends</button>
     </div>
 
     <div id="pairingInvite" hidden>
@@ -110,6 +119,7 @@
   </div>
 
   <div class="card" id="match" hidden>
+    <button class="btn-secondary" id="backToFriendsBtn" type="button">← Friends</button>
     <div id="matchWaiting">
       <h2>Almost there</h2>
       <p class="sub" id="matchWaitingText">Waiting for your partner to finish rating their films.</p>

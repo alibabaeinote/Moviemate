@@ -15,7 +15,20 @@ export interface UserDoc {
   name: string;
   email: string;
   createdAt: Timestamp;
+  /** Legacy single-pair field, superseded by pairIds/activePairId below — kept for old documents, no longer written to. */
   pairId: string | null;
+  /**
+   * Multi-friend support (web/app.js "FRIENDS" section, firestore.rules
+   * deviation f): every pair this user belongs to. Plain client-owned
+   * fields, not access-controlled the way pairId was — the real authority
+   * for whether a read/write against a given pair is allowed is always
+   * isPairMember() on that pair's own userA/userB, so this is just a
+   * personal index for the friends list, no different in trust level from
+   * name/avatarUrl below.
+   */
+  pairIds: string[];
+  /** Which of pairIds is showing in the match tab right now, or null. */
+  activePairId: string | null;
   onboardingComplete: boolean;
   ratingCount: number;
   fcmTokens: string[];

@@ -14,6 +14,8 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  deleteDoc,
   limit,
   orderBy,
   query,
@@ -22,6 +24,8 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  arrayUnion,
+  arrayRemove,
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
@@ -79,6 +83,7 @@ const els = {
   getInviteBtn: document.getElementById("getInviteBtn"),
   showJoinBtn: document.getElementById("showJoinBtn"),
   backFromJoinBtn: document.getElementById("backFromJoinBtn"),
+  backToFriendsFromChoiceBtn: document.getElementById("backToFriendsFromChoiceBtn"),
   joinBtn: document.getElementById("joinBtn"),
   joinCodeInput: document.getElementById("joinCodeInput"),
   inviteCodeDisplay: document.getElementById("inviteCodeDisplay"),
@@ -88,7 +93,14 @@ const els = {
   partnerText: document.getElementById("partnerText"),
   pairingStatus: document.getElementById("pairingStatus"),
 
+  friends: document.getElementById("friends"),
+  friendsList: document.getElementById("friendsList"),
+  friendsEmpty: document.getElementById("friendsEmpty"),
+  addFriendBtn: document.getElementById("addFriendBtn"),
+  friendsStatus: document.getElementById("friendsStatus"),
+
   match: document.getElementById("match"),
+  backToFriendsBtn: document.getElementById("backToFriendsBtn"),
   matchWaiting: document.getElementById("matchWaiting"),
   matchWaitingText: document.getElementById("matchWaitingText"),
   matchNotYet: document.getElementById("matchNotYet"),
@@ -199,6 +211,8 @@ async function ensureUserDocument(user, isNewUser) {
     avatarUrl: user.photoURL || null,
     createdAt: serverTimestamp(),
     pairId: null,
+    pairIds: [],
+    activePairId: null,
     onboardingComplete: false,
     ratingCount: 0,
     notificationSettings: { dailyMatch: true, partnerActivity: true, reminders: true },
@@ -229,68 +243,128 @@ function renderAvatar(name, photoUrl) {
 function showSection(name) {
   els.onboarding.hidden = name !== "onboarding";
   els.pairing.hidden = name !== "pairing";
+  els.friends.hidden = name !== "friends";
   els.match.hidden = name !== "match";
 }
 
 /**
- * Whether THIS user is done onboarding, checked live against their actual
- * rating history rather than trusting users.onboardingComplete — that field
- * is only ever set by the (Blaze-only) onRatingComplete trigger, so on the
- * no-Blaze path it would stay false forever and strand a paired user back in
- * onboarding on every visit. See web/match.js and the README's "no-Blaze"
- * section.
+ * Which pair's onboarding rating deck is currently running, if any: null
+ * means the pre-pairing draft buffer (the very first pair a user ever
+ * makes — see the DRAFT_KEY block above), a pairId means this is a repeat
+ * trip through the deck for an ADDITIONAL friend, who starts that pair's
+ * ratings at zero regardless of how many other friends this user already
+ * has (see the multi-friend note above initFriendsSection).
  */
-async function decideInitialSection(userData, pairId) {
-  if (pairId) {
-    const myCount = await onboardingRatingCount(db, pairId, auth.currentUser.uid);
-    return myCount >= RATING_TARGET ? "match" : "onboarding";
+let onboardingPairId = null;
+
+/**
+ * One-time upgrade for users who signed up before multi-friend support:
+ * their single users/{uid}.pairId becomes the first entry of pairIds, and
+ * their current pair becomes their active one. Mutates `data` in place (the
+ * caller's about-to-be-`latestUserData` object) so routing decided right
+ * after this call sees the migrated shape without waiting for the snapshot
+ * this write triggers to come back around.
+ */
+async function migrateLegacyPairId(uid, data) {
+  if (!data.pairId || (data.pairIds && data.pairIds.length > 0)) return;
+  data.pairIds = [data.pairId];
+  data.activePairId = data.activePairId || data.pairId;
+  try {
+    await updateDoc(doc(db, "users", uid), {
+      pairIds: arrayUnion(data.pairId),
+      activePairId: data.activePairId,
+    });
+  } catch {
+    // Best-effort — the next snapshot retries this from scratch.
   }
-  if (draftCount() >= RATING_TARGET) return "pairing";
-  return "onboarding";
 }
 
 async function maybeDecideInitialRoute() {
   if (routeDecided || !latestUserData) return;
-  const pairId = latestUserData.pairId;
   routeDecided = true;
-  const section = await decideInitialSection(latestUserData, pairId);
   // The profile card (name + sign out) is only the very first, momentary
   // step — it's for the one-time "here's how I want to be known to my
-  // partner" edit right after signing in, not a permanent header sitting
-  // above onboarding/pairing/match. Hide it the instant routing lands
-  // somewhere; editing the name again is a "sign out and back in" affair
-  // for now, same as this client not having a separate profile screen yet.
+  // friends" edit right after signing in, not a permanent header sitting
+  // above onboarding/pairing/friends/match. Hide it the instant routing
+  // lands somewhere; editing the name again is a "sign out and back in"
+  // affair for now, same as this client not having a separate profile
+  // screen yet.
   els.signedIn.hidden = true;
-  showSection(section);
-  if (section === "onboarding") initOnboarding();
-  if (section === "match") goToMatch();
+
+  const pairIds = latestUserData.pairIds || [];
+  if (pairIds.length === 0) {
+    if (draftCount() >= RATING_TARGET) {
+      goToPairing();
+    } else {
+      onboardingPairId = null;
+      showSection("onboarding");
+      initOnboarding();
+    }
+    return;
+  }
+  showSection("friends");
+  initFriendsSection();
 }
 
 /** Called by the onboarding/pairing screens themselves once they're done. */
 function goToPairing() {
   showSection("pairing");
+  els.backToFriendsFromChoiceBtn.hidden = !(latestUserData?.pairIds?.length > 0);
   showPairingView("choice");
 }
 
-async function goToMatch() {
-  showSection("match");
-  const pairId = latestUserData?.pairId;
+/**
+ * Enter a specific pair by id: this user's own rating history for THAT
+ * pair decides whether they land in its onboarding deck (a brand new
+ * friend always starts at zero, no matter how many other friends this user
+ * already has — see the multi-friend note above initFriendsSection) or
+ * straight into its match section.
+ */
+async function enterPair(pairId) {
   if (!pairId) return;
+  const myCount = await onboardingRatingCount(db, pairId, auth.currentUser.uid);
+  if (myCount < RATING_TARGET) {
+    onboardingPairId = pairId;
+    showSection("onboarding");
+    initOnboarding();
+    return;
+  }
+  await goToMatch(pairId);
+}
+
+async function goToMatch(pairId) {
+  showSection("match");
+  if (!pairId) return;
+  if (latestUserData?.activePairId !== pairId) {
+    try {
+      await updateDoc(doc(db, "users", auth.currentUser.uid), { activePairId: pairId });
+    } catch {
+      // Non-fatal — activePairId is only a UI convenience (see firestore.rules).
+    }
+  }
   const snap = await getDoc(doc(db, "pairs", pairId));
   if (snap.exists()) initMatchSection(pairId, snap.data());
+}
+
+function backToFriends() {
+  stopMatchSection();
+  showSection("friends");
+  initFriendsSection();
 }
 
 function watchUserDoc(uid) {
   if (unsubscribeUserDoc) unsubscribeUserDoc();
   unsubscribeUserDoc = onSnapshot(
     doc(db, "users", uid),
-    (snap) => {
+    async (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
+      await migrateLegacyPairId(uid, data);
       latestUserData = data;
       els.nameInput.value = data.name || "";
       renderAvatar(data.name, data.avatarUrl || auth.currentUser?.photoURL);
       maybeDecideInitialRoute();
+      if (!els.friends.hidden) initFriendsSection();
     },
     (err) => showStatus(els.status, permissionHint(err) || err.message, true),
   );
@@ -303,9 +377,10 @@ onAuthStateChanged(auth, (user) => {
     showSection(null);
     routeDecided = false;
     latestUserData = null;
+    onboardingPairId = null;
     if (unsubscribeUserDoc) unsubscribeUserDoc();
-    if (mtUnsubPair) mtUnsubPair();
-    if (mtUnsubMatch) mtUnsubMatch();
+    stopMatchSection();
+    stopWatchingAllFriends();
     return;
   }
   els.signedOut.hidden = true;
@@ -468,8 +543,8 @@ els.startDeckBtn.addEventListener("click", async () => {
   try {
     ob.films = await fetchOnboardingFilms([...ob.selected], DECK_SIZE, ob.genreNamesById);
     ob.index = 0;
-    ob.recorded = latestUserData?.pairId
-      ? await onboardingRatingCount(db, latestUserData.pairId, auth.currentUser.uid)
+    ob.recorded = onboardingPairId
+      ? await onboardingRatingCount(db, onboardingPairId, auth.currentUser.uid)
       : draftCount();
     ob.step = "deck";
     renderOnboarding();
@@ -492,8 +567,8 @@ els.obDial.addEventListener("input", () => {
 function advanceDeck(recorded) {
   ob.recorded = recorded;
   if (recorded >= RATING_TARGET) {
-    if (latestUserData?.pairId) {
-      goToMatch();
+    if (onboardingPairId) {
+      goToMatch(onboardingPairId);
     } else {
       goToPairing();
     }
@@ -515,7 +590,7 @@ els.obRateBtn.addEventListener("click", async () => {
   const recordedBefore = ob.recorded;
   advanceDeck(recordedBefore + 1);
 
-  const pairId = latestUserData?.pairId;
+  const pairId = onboardingPairId;
   const uid = auth.currentUser?.uid;
   try {
     if (pairId) {
@@ -565,6 +640,7 @@ els.obExtendBtn.addEventListener("click", async () => {
    ============================================================ */
 
 let pendingInviteCode = null;
+let pendingPairId = null;
 
 function showPairingView(view) {
   els.pairingChoice.hidden = view !== "choice";
@@ -599,8 +675,16 @@ function generateInviteCode() {
  * as createPair.ts: a collision shows up here as the inviteCodes write being
  * evaluated as an update (the doc already exists) against a rule that never
  * allows update, so it fails with permission-denied.
+ *
+ * Multi-friend note: 'pairId' is only ever claimable while it's still null
+ * (claimsOwnPair() in firestore.rules), so it's written once, for a user's
+ * very first pair, and left alone for every pair after that — it's a legacy
+ * field now, superseded by pairIds/activePairId, which are plain self-serve
+ * fields and get appended to on every pair regardless. The two updates stay
+ * separate calls because they're matched by two different rule branches
+ * (claimsOwnPair vs. the field whitelist) that each reject the other's keys.
  */
-async function createPairDirect(uid, timezone) {
+async function createPairDirect(uid, timezone, name, avatarUrl) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const inviteCode = generateInviteCode();
     const pairRef = doc(collection(db, "pairs"));
@@ -619,6 +703,13 @@ async function createPairDirect(uid, timezone) {
       lastMatchGeneratedAt: null,
       lastWatchAt: null,
       timezone,
+      // Denormalized the same way joinPairDirect denormalizes userB's —
+      // there's no onUserProfileUpdated trigger on this no-Blaze path (it's
+      // Cloud-Functions-only) to backfill this later, so it has to be set
+      // right here at creation or the friends list never has a name to show
+      // the other side (see friendDisplayName in the FRIENDS section).
+      userAName: name,
+      userAAvatarUrl: avatarUrl,
     });
     batch.set(doc(db, "inviteCodes", inviteCode), {
       pairId: pairRef.id,
@@ -632,7 +723,13 @@ async function createPairDirect(uid, timezone) {
       throw err;
     }
 
-    await updateDoc(doc(db, "users", uid), { pairId: pairRef.id });
+    if (!latestUserData?.pairId) {
+      await updateDoc(doc(db, "users", uid), { pairId: pairRef.id });
+    }
+    await updateDoc(doc(db, "users", uid), {
+      pairIds: arrayUnion(pairRef.id),
+      activePairId: pairRef.id,
+    });
     return { pairId: pairRef.id, inviteCode };
   }
   throw new Error("Could not allocate an invite code. Try again.");
@@ -676,7 +773,13 @@ async function joinPairDirect(uid, inviteCode, name, avatarUrl) {
     throw err;
   }
 
-  await updateDoc(doc(db, "users", uid), { pairId });
+  if (!latestUserData?.pairId) {
+    await updateDoc(doc(db, "users", uid), { pairId });
+  }
+  await updateDoc(doc(db, "users", uid), {
+    pairIds: arrayUnion(pairId),
+    activePairId: pairId,
+  });
   return { pairId, partnerUid: pair.userA };
 }
 
@@ -688,8 +791,15 @@ els.getInviteBtn.addEventListener("click", async () => {
     const uid = auth.currentUser.uid;
     const timezone =
       latestUserData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const { pairId, inviteCode } = await createPairDirect(uid, timezone);
+    const user = auth.currentUser;
+    const { pairId, inviteCode } = await createPairDirect(
+      uid,
+      timezone,
+      latestUserData?.name || user.displayName || "",
+      user.photoURL || null
+    );
     pendingInviteCode = inviteCode;
+    pendingPairId = pairId;
     await flushDraftIntoPair(pairId, uid);
     els.inviteCodeDisplay.textContent = pendingInviteCode;
     showPairingView("invite");
@@ -703,6 +813,7 @@ els.getInviteBtn.addEventListener("click", async () => {
 
 els.showJoinBtn.addEventListener("click", () => showPairingView("join"));
 els.backFromJoinBtn.addEventListener("click", () => showPairingView("choice"));
+els.backToFriendsFromChoiceBtn.addEventListener("click", backToFriends);
 
 els.copyInviteBtn.addEventListener("click", async () => {
   if (!pendingInviteCode) return;
@@ -710,8 +821,8 @@ els.copyInviteBtn.addEventListener("click", async () => {
   showStatus(els.pairingStatus, "Copied.", false);
 });
 
-els.continueFromInviteBtn.addEventListener("click", goToMatch);
-els.continueFromDoneBtn.addEventListener("click", goToMatch);
+els.continueFromInviteBtn.addEventListener("click", () => enterPair(pendingPairId));
+els.continueFromDoneBtn.addEventListener("click", () => enterPair(pendingPairId));
 
 els.joinBtn.addEventListener("click", async () => {
   const inviteCode = els.joinCodeInput.value.trim().toUpperCase();
@@ -727,6 +838,7 @@ els.joinBtn.addEventListener("click", async () => {
       latestUserData?.name || user.displayName || "",
       user.photoURL || null
     );
+    pendingPairId = pairId;
     await flushDraftIntoPair(pairId, user.uid);
     els.partnerText.textContent = "You're paired up.";
     showPairingView("done");
@@ -926,9 +1038,16 @@ function canGenerateAgain(pair) {
   return Date.now() - last.getTime() > 20 * 60 * 60 * 1000;
 }
 
-function initMatchSection(pairId, pair) {
+/** Tears down the match section's listeners — leaving it for the friends list, or signing out. */
+function stopMatchSection() {
   if (mtUnsubPair) mtUnsubPair();
   if (mtUnsubMatch) mtUnsubMatch();
+  mtUnsubPair = null;
+  mtUnsubMatch = null;
+}
+
+function initMatchSection(pairId, pair) {
+  stopMatchSection();
 
   mt.pairId = pairId;
   mt.pair = pair;
@@ -941,7 +1060,12 @@ function initMatchSection(pairId, pair) {
   mtUnsubPair = onSnapshot(
     doc(db, "pairs", pairId),
     (snap) => {
-      if (!snap.exists()) return;
+      if (!snap.exists()) {
+        // This friend was removed (by either side — see removeFriend) while
+        // their match section was open. Nothing left to show here.
+        backToFriends();
+        return;
+      }
       mt.pair = snap.data();
       renderMatchSection();
     },
@@ -981,6 +1105,8 @@ async function runFindMatch(button, busyLabel, restLabel) {
     button.textContent = restLabel;
   }
 }
+
+els.backToFriendsBtn.addEventListener("click", backToFriends);
 
 els.findMatchBtn.addEventListener("click", () =>
   runFindMatch(els.findMatchBtn, "Finding something…", "Find tonight's movie")
@@ -1054,3 +1180,277 @@ els.matchRateBtn.addEventListener("click", async () => {
     els.matchRateBtn.disabled = false;
   }
 });
+
+/* ============================================================
+   FRIENDS — the home screen once a user has at least one pair. Multi-friend
+   support (ALI-empty-nest): a user can be a member of any number of /pairs
+   documents, tracked in users/{uid}.pairIds; each pair is still a strict
+   two-person document exactly as before (see firestore.rules deviation f),
+   with its own independent ratings/matches/watchlist/streak — a new friend
+   always starts a fresh onboarding deck for THAT pair, same as this app's
+   very first pair always has, rather than reusing a taste profile built for
+   someone else. That's a deliberate scope call, not an oversight: sharing
+   one taste profile across friends would mean moving ratings out of
+   pairs/{pairId}/ratings into a per-user collection and reworking
+   match-engine.js and firestore.rules around it — a bigger change than this
+   pass makes.
+
+   Every friend needing your attention (a match they're waiting on you to
+   confirm) is surfaced right here rather than behind a filter — see
+   friendStatus() below — so this screen doubles as the "someone found a
+   match" inbox the product asked for.
+   ============================================================ */
+
+// pairId -> { unsubPair, unsubMatch }
+const fsUnsubscribers = new Map();
+// pairId -> { pair, match, matchId }
+const fsPairs = new Map();
+
+function stopWatchingFriend(pairId) {
+  const subs = fsUnsubscribers.get(pairId);
+  if (subs) {
+    subs.unsubPair();
+    subs.unsubMatch();
+    fsUnsubscribers.delete(pairId);
+  }
+  fsPairs.delete(pairId);
+}
+
+function stopWatchingAllFriends() {
+  for (const pairId of [...fsUnsubscribers.keys()]) stopWatchingFriend(pairId);
+}
+
+/**
+ * A pair that disappeared from Firestore (removeFriend() below, run by
+ * either side) but is still listed in this user's own pairIds — there's no
+ * Cloud Function here to clean up the other member's copy the instant it
+ * happens, so each side's own client quietly drops the stale id the next
+ * time it notices the pair is gone.
+ */
+async function selfHealRemovedPair(pairId) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  const updates = { pairIds: arrayRemove(pairId) };
+  if (latestUserData?.activePairId === pairId) updates.activePairId = null;
+  try {
+    await updateDoc(doc(db, "users", uid), updates);
+  } catch {
+    // Best-effort — it'll try again on the next load if this failed.
+  }
+}
+
+/** Keeps this user's set of watched pairs in sync with users/{uid}.pairIds. */
+function initFriendsSection() {
+  showStatus(els.friendsStatus, "", false);
+  const pairIds = latestUserData?.pairIds || [];
+
+  for (const pairId of [...fsUnsubscribers.keys()]) {
+    if (!pairIds.includes(pairId)) stopWatchingFriend(pairId);
+  }
+
+  for (const pairId of pairIds) {
+    if (fsUnsubscribers.has(pairId)) continue;
+
+    const unsubPair = onSnapshot(
+      doc(db, "pairs", pairId),
+      (snap) => {
+        if (!snap.exists()) {
+          stopWatchingFriend(pairId);
+          selfHealRemovedPair(pairId);
+          renderFriendsList();
+          return;
+        }
+        const entry = fsPairs.get(pairId) || {};
+        entry.pair = snap.data();
+        fsPairs.set(pairId, entry);
+        renderFriendsList();
+      },
+      (err) => showStatus(els.friendsStatus, permissionHint(err) || err.message, true)
+    );
+
+    const latestMatchQuery = query(
+      collection(db, "pairs", pairId, "matches"),
+      orderBy("suggestedAt", "desc"),
+      limit(1)
+    );
+    const unsubMatch = onSnapshot(
+      latestMatchQuery,
+      (snap) => {
+        const matchDoc = snap.docs[0];
+        const entry = fsPairs.get(pairId) || {};
+        entry.match = matchDoc ? matchDoc.data() : null;
+        entry.matchId = matchDoc ? matchDoc.id : null;
+        fsPairs.set(pairId, entry);
+        renderFriendsList();
+      },
+      () => {} // A missing match is a normal, common state — nothing to surface here.
+    );
+
+    fsUnsubscribers.set(pairId, { unsubPair, unsubMatch });
+  }
+
+  renderFriendsList();
+}
+
+/**
+ * A one-line status per friend, computed from data already loaded for the
+ * list (the pair doc + its latest match) rather than an extra per-row
+ * aggregate query — "still onboarding" vs. "ready to generate" gets sorted
+ * out precisely once you actually open a friend (see enterPair). needsAction
+ * is what a match waiting on YOUR commit sets, so those rows can float to
+ * the top — the "tell your friend you found something" case the product
+ * asked for is exactly this state on their side.
+ */
+function friendStatus(uid, pair, match) {
+  if (!pair.userB) {
+    return { label: "Waiting for them to join", needsAction: false };
+  }
+  if (!match) {
+    return { label: "No match yet", needsAction: false };
+  }
+  if (match.watchedConfirmedAt) {
+    return {
+      label: pair.streakCount ? `Watched · ${pair.streakCount} day streak` : "Watched",
+      needsAction: false,
+    };
+  }
+  if (!match.filmId) {
+    return { label: match.noMatchesReason || "No match today", needsAction: false };
+  }
+  const mySide = pair.userA === uid ? "userA" : "userB";
+  const partnerSide = mySide === "userA" ? "userB" : "userA";
+  const iCommitted = !!match.commitStatus?.[mySide];
+  const partnerCommitted = !!match.commitStatus?.[partnerSide];
+  if (iCommitted && partnerCommitted) {
+    return { label: "You're both in — watch it!", needsAction: true };
+  }
+  if (iCommitted) {
+    return { label: "Waiting on them to confirm", needsAction: false };
+  }
+  return { label: "Found a match — waiting on your OK", needsAction: true };
+}
+
+function friendDisplayName(uid, pair) {
+  const isUserA = pair.userA === uid;
+  return (isUserA ? pair.userBName : pair.userAName) || "Your friend";
+}
+
+function friendAvatarUrl(uid, pair) {
+  const isUserA = pair.userA === uid;
+  return (isUserA ? pair.userBAvatarUrl : pair.userAAvatarUrl) || null;
+}
+
+/**
+ * Safe for both text-node and quoted-attribute contexts — this is used for
+ * both (friend-status text, and the name/avatar URL inside style="" and
+ * aria-label="" below). The textContent/innerHTML round trip alone only
+ * escapes &, < and > (quotes are never special in text-node content), so a
+ * crafted display name or avatarUrl containing a literal `"` could still
+ * break out of a quoted attribute without the extra replace here.
+ */
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML.replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+function renderFriendsList() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  const pairIds = latestUserData?.pairIds || [];
+  const rows = pairIds
+    .map((pairId) => ({ pairId, entry: fsPairs.get(pairId) }))
+    .filter((row) => row.entry?.pair);
+
+  els.friendsEmpty.hidden = rows.length > 0;
+  if (rows.length === 0) {
+    els.friendsList.innerHTML = "";
+    return;
+  }
+
+  const decorated = rows.map(({ pairId, entry }) => ({
+    pairId,
+    pair: entry.pair,
+    status: friendStatus(uid, entry.pair, entry.match),
+  }));
+  decorated.sort((a, b) => Number(b.status.needsAction) - Number(a.status.needsAction));
+
+  els.friendsList.innerHTML = decorated
+    .map(({ pairId, pair, status }) => {
+      const name = escapeHtml(friendDisplayName(uid, pair));
+      const avatarUrl = friendAvatarUrl(uid, pair);
+      const initial = escapeHtml((friendDisplayName(uid, pair) || "?").trim().charAt(0).toUpperCase() || "?");
+      const avatarStyle = avatarUrl ? ` style="background-image:url(${escapeHtml(avatarUrl)})"` : "";
+      return `
+        <div class="friend-row" data-pair-id="${pairId}">
+          <button type="button" class="friend-open" data-open-pair="${pairId}">
+            <div class="avatar friend-avatar"${avatarStyle}>${avatarUrl ? "" : initial}</div>
+            <div class="friend-info">
+              <div class="friend-name">${name}</div>
+              <div class="friend-status${status.needsAction ? " is-action" : ""}">${escapeHtml(status.label)}</div>
+            </div>
+          </button>
+          <button type="button" class="friend-remove" data-remove-pair="${pairId}" aria-label="Remove ${name}">✕</button>
+        </div>`;
+    })
+    .join("");
+}
+
+els.friendsList.addEventListener("click", async (event) => {
+  const openBtn = event.target.closest("[data-open-pair]");
+  if (openBtn) {
+    enterPair(openBtn.dataset.openPair);
+    return;
+  }
+  const removeBtn = event.target.closest("[data-remove-pair]");
+  if (removeBtn) {
+    const pairId = removeBtn.dataset.removePair;
+    const entry = fsPairs.get(pairId);
+    const name = entry?.pair ? friendDisplayName(auth.currentUser.uid, entry.pair) : "this friend";
+    const confirmed = window.confirm(
+      `Remove ${name} and delete everything you've rated and matched together? This can't be undone.`
+    );
+    if (confirmed) removeFriend(pairId);
+  }
+});
+
+els.addFriendBtn.addEventListener("click", goToPairing);
+
+/** Deletes every doc in a subcollection. Fine at this app's per-pair scale (well under Firestore's 500-op batch limit). */
+async function deleteSubcollection(colRef) {
+  const snap = await getDocs(colRef);
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+  await batch.commit();
+}
+
+/**
+ * Removing a friend deletes the pair and everything scoped under it —
+ * ratings, matches, watchlist — then drops it from this user's own
+ * pairIds. The other member's own pairIds still lists it until their next
+ * load notices the pair is gone (selfHealRemovedPair above); there's no
+ * Cloud Function here to tell them right away.
+ */
+async function removeFriend(pairId) {
+  showStatus(els.friendsStatus, "Removing…", false);
+  try {
+    await deleteSubcollection(collection(db, "pairs", pairId, "ratings"));
+    await deleteSubcollection(collection(db, "pairs", pairId, "matches"));
+    await deleteSubcollection(collection(db, "pairs", pairId, "watchlist"));
+    await deleteDoc(doc(db, "pairs", pairId));
+  } catch (err) {
+    showStatus(els.friendsStatus, permissionHint(err) || `Couldn't remove: ${err.message}`, true);
+    return;
+  }
+  stopWatchingFriend(pairId);
+  const updates = { pairIds: arrayRemove(pairId) };
+  if (latestUserData?.activePairId === pairId) updates.activePairId = null;
+  try {
+    await updateDoc(doc(db, "users", auth.currentUser.uid), updates);
+  } catch (err) {
+    showStatus(els.friendsStatus, permissionHint(err) || err.message, true);
+    return;
+  }
+  showStatus(els.friendsStatus, "Removed.", false);
+}

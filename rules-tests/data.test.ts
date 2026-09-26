@@ -129,11 +129,20 @@ describe("ratings belong to their author", () => {
     );
   });
 
-  it("STOPS deleting a rating", async () => {
+  it("lets a pair member delete a rating (removing a friend wipes their history)", async () => {
     const db = env.authenticatedContext(ALI).firestore();
     const ref = doc(db, "pairs", PAIR, "ratings", `${ALI}_438631`);
     await assertSucceeds(setDoc(ref, rating(ALI, 60)));
-    await assertFails(deleteDoc(ref));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it("STOPS a stranger deleting a rating", async () => {
+    const aliDb = env.authenticatedContext(ALI).firestore();
+    const ref = doc(aliDb, "pairs", PAIR, "ratings", `${ALI}_438631`);
+    await assertSucceeds(setDoc(ref, rating(ALI, 60)));
+
+    const strangerDb = env.authenticatedContext(STRANGER).firestore();
+    await assertFails(deleteDoc(doc(strangerDb, "pairs", PAIR, "ratings", `${ALI}_438631`)));
   });
 });
 

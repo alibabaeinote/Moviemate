@@ -75,8 +75,13 @@ describe("/pairs is closed to client writes", () => {
     await assertFails(updateDoc(doc(db, "pairs", PAIR), { aBothOnboarded: true }));
   });
 
-  it("STOPS a member deleting the pair", async () => {
+  it("lets a member delete the pair (removing a friend — see firestore.rules deviation f)", async () => {
     const db = env.authenticatedContext(ALI).firestore();
+    await assertSucceeds(deleteDoc(doc(db, "pairs", PAIR)));
+  });
+
+  it("STOPS a stranger deleting the pair", async () => {
+    const db = env.authenticatedContext(STRANGER).firestore();
     await assertFails(deleteDoc(doc(db, "pairs", PAIR)));
   });
 });
@@ -105,6 +110,20 @@ describe("/users — field whitelist", () => {
   it("STOPS a user reassigning their own pairId", async () => {
     const db = env.authenticatedContext(ALI).firestore();
     await assertFails(updateDoc(doc(db, "users", ALI), { pairId: "some_other_pair" }));
+  });
+
+  it("lets a user manage their own pairIds/activePairId (multi-friend support)", async () => {
+    // Plain self-serve fields, unlike pairId above — see the note on this
+    // rule in firestore.rules (deviation f). Adding a pair you don't
+    // actually belong to gains nothing: isPairMember() on that pair's own
+    // data still gates every read/write to it, regardless of this list.
+    const db = env.authenticatedContext(ALI).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, "users", ALI), {
+        pairIds: [PAIR, "some_other_pair_ali_is_not_actually_in"],
+        activePairId: PAIR,
+      })
+    );
   });
 
   it("STOPS a user inflating their own ratingCount", async () => {
@@ -159,8 +178,13 @@ describe("matches are produced by the server only", () => {
     );
   });
 
-  it("STOPS a client deleting a match", async () => {
+  it("lets a pair member delete a match (removing a friend wipes their history)", async () => {
     const db = env.authenticatedContext(ALI).firestore();
+    await assertSucceeds(deleteDoc(doc(db, "pairs", PAIR, "matches", "match_1")));
+  });
+
+  it("STOPS a stranger deleting a match", async () => {
+    const db = env.authenticatedContext(STRANGER).firestore();
     await assertFails(deleteDoc(doc(db, "pairs", PAIR, "matches", "match_1")));
   });
 });

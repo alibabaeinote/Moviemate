@@ -67,6 +67,16 @@ This publishes `web/` to `https://moviemate-prod-2026.web.app`, which
 Firebase auto-authorizes for sign-in — no extra domain configuration
 needed.
 
+`firebase.json`'s hosting `headers` block sends every file with
+`Cache-Control: no-cache, must-revalidate` rather than Firebase Hosting's
+default caching. Without it, iOS Safari in particular kept serving a
+stale `app.js` for up to an hour after a redeploy while `index.html`
+itself refreshed sooner — new markup showing up next to old JS logic
+behind it, which cost real debugging time chasing "why doesn't my fix
+show up" across more than one deploy. This app is a handful of small
+files with no meaningful CDN-cost concern, so always revalidating is the
+right trade here.
+
 ## Before pairing or onboarding films will work: a TMDB API key
 
 `createPair`/`joinPair`/`listGenres`/`getOnboardingFilms` are Cloud

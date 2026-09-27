@@ -82,17 +82,35 @@ right trade here.
 `.github/workflows/deploy-web.yml` runs the same deploy on every push
 that touches `web/`, `firestore.rules`, `firestore.indexes.json` or
 `firebase.json` — no more doing this by hand from Cloud Shell after
-every fix. It needs one repo secret, generated once:
+every fix. It authenticates as a Google Cloud **service account**, not a
+`firebase login:ci` token: that legacy token type actually fails now (not
+just "deprecated" — a real CI run 401'd calling Google's Service Usage
+API mid-deploy), so a service account key is the one that actually works.
+One-time setup:
 
-```
-firebase login:ci
-```
+1. Open [the service accounts page](https://console.cloud.google.com/iam-admin/serviceaccounts?project=moviemate-prod-2026)
+   for this project and click **Create Service Account**. Name it
+   something like `github-actions-deploy`; the id/description don't
+   matter.
+2. On the next step ("Grant this service account access to project"),
+   add the role **Firebase Admin** (search "Firebase Admin" in the role
+   picker). That's broad, but simplest for a two-person project — no
+   permission whack-a-mole later. Click **Done**.
+3. Back on the service accounts list, click the one you just made →
+   **Keys** tab → **Add Key** → **Create new key** → type **JSON** →
+   **Create**. A `.json` file downloads — this is the only copy Google
+   gives you.
+4. Open that downloaded file in a text editor, select all, copy the
+   whole thing (it's one JSON object).
+5. Add it to the repo as **Settings → Secrets and variables → Actions →
+   New repository secret**, named `FIREBASE_SERVICE_ACCOUNT`, value the
+   entire JSON you copied — paste it as-is, don't reformat it.
 
-This opens a browser login and prints a token. Add it to the repo as
-**Settings → Secrets and variables → Actions → New repository secret**,
-named `FIREBASE_TOKEN`, value the printed token. From then on, a push to
-the branch the workflow watches deploys itself within a few minutes —
-check the Actions tab for its progress or failures.
+From then on, a push to the branch the workflow watches deploys itself
+within a couple of minutes — check the Actions tab for its progress or
+failures. You can also trigger it by hand from there (Actions →
+"Deploy web..." → **Run workflow**) to test the secret without waiting
+for a real push.
 
 ## Before pairing or onboarding films will work: a TMDB API key
 

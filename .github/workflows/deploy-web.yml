@@ -7,9 +7,17 @@ name: Deploy web (Firebase Hosting + Firestore rules)
 # to the repo's default branch, update the branch filter below (or add it
 # alongside) rather than deploying from every branch pushed to.
 #
-# Requires a repo secret named FIREBASE_TOKEN — see the README note this
-# commit adds under web/README.md's "Deploying it for real" section for
-# how to generate one.
+# Requires a repo secret named FIREBASE_SERVICE_ACCOUNT — see the README
+# note under web/README.md's "Deploying it for real" section for how to
+# generate one.
+#
+# NOT FIREBASE_TOKEN (`firebase login:ci`): that legacy CI-auth path is
+# actually broken now, not just deprecated — it authenticates firebase-tools
+# itself fine, but Google's Service Usage API (which the Firestore deploy's
+# "ensuring required API is enabled" preflight check calls directly) 401s
+# on it: "Request had invalid authentication credentials." A real run here
+# hit exactly that. A service account key is Google's current supported
+# path and doesn't have this gap.
 
 on:
   push:
@@ -20,8 +28,9 @@ on:
       - "firestore.indexes.json"
       - "firebase.json"
       - ".github/workflows/deploy-web.yml"
-  # Lets you test the FIREBASE_TOKEN secret from the Actions tab's "Run
-  # workflow" button, without waiting for a real code change to push.
+  # Lets you test the FIREBASE_SERVICE_ACCOUNT secret from the Actions
+  # tab's "Run workflow" button, without waiting for a real code change to
+  # push.
   workflow_dispatch: {}
 
 # A newer push supersedes an in-flight deploy of the same branch.
@@ -39,16 +48,17 @@ jobs:
         with:
           node-version: "22"
 
-      # firebase-tools warns that FIREBASE_TOKEN (from `firebase login:ci`)
-      # is deprecated in favor of a service-account key, but it still works
-      # as of this writing and needs far less one-time setup than wiring up
-      # a service account — the simpler path for a two-person project.
-      # If Firebase ever actually removes it, switch this step to
-      # google-github-actions/auth with a service-account JSON secret
-      # instead.
+      # firebase-tools auto-detects GOOGLE_APPLICATION_CREDENTIALS and
+      # authenticates as this service account — no --token/FIREBASE_TOKEN
+      # needed, and no deprecation warning either.
+      - name: Write the service account key to a file
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/gcp-key.json"
+
       - name: Deploy Firestore rules and Hosting
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-key.json
         run: |
           npx firebase-tools@latest deploy \
             --only firestore:rules,hosting \

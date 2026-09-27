@@ -20,6 +20,9 @@ on:
       - "firestore.indexes.json"
       - "firebase.json"
       - ".github/workflows/deploy-web.yml"
+  # Lets you test the FIREBASE_TOKEN secret from the Actions tab's "Run
+  # workflow" button, without waiting for a real code change to push.
+  workflow_dispatch: {}
 
 # A newer push supersedes an in-flight deploy of the same branch.
 concurrency:

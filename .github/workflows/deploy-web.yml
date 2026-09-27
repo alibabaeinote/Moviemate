@@ -1,8 +1,37 @@
 name: Deploy web (Firebase Hosting + Firestore rules)
 
-# Deploy only this project branch. GitHub Actions authenticates to Google Cloud
-# with Workload Identity Federation; no long-lived service account key or
-# FIREBASE_SERVICE_ACCOUNT GitHub secret is needed.
+# Automates the manual "npx firebase-tools deploy" step this project has
+# been running by hand from Cloud Shell after every web/firestore.rules
+# change. Scoped to this branch on purpose — it's the one actually being
+# tested against moviemate-prod-2026 right now. If/when this work merges
+# to the repo's default branch, update the branch filter below (or add it
+# alongside) rather than deploying from every branch pushed to.
+#
+# Requires a repo secret named FIREBASE_SERVICE_ACCOUNT (a service-account
+# JSON key) — see web/README.md's "Deploying it for real" section for how
+# to generate one.
+#
+# NOT Workload Identity Federation, despite WIF being the more modern,
+# keyless choice for GitHub->GCP auth in general: a live run here proved
+# firebase-tools itself doesn't consume WIF-issued ADC credentials —
+# google-github-actions/auth's WIF step passed clean, but the very next
+# "firebase deploy" step still failed with "Failed to authenticate, have
+# you run firebase login?". This is a known, open gap in firebase-tools
+# (github.com/firebase/firebase-tools/issues/10726), not a config mistake
+# on our end — the CLI's own credential loader only recognizes a real
+# service-account key file (GOOGLE_APPLICATION_CREDENTIALS) or a
+# `firebase login:ci` token, not an external_account/WIF credential.
+#
+# NOT FIREBASE_TOKEN (`firebase login:ci`) either, for a different reason:
+# that legacy CI-auth path is actually broken now, not just deprecated —
+# it authenticates firebase-tools itself fine, but the Firestore deploy's
+# "ensuring required API is enabled" preflight check calls Google's
+# Service Usage API directly, which 401'd on it in a live run here too:
+# "Request had invalid authentication credentials."
+#
+# A service-account JSON key is therefore the one auth path, of the three
+# tried, that firebase-tools actually supports end to end.
+
 on:
   push:
     branches: ["claude/movie-matching-suggestion-w6ot7v"]
@@ -12,12 +41,12 @@ on:
       - "firestore.indexes.json"
       - "firebase.json"
       - ".github/workflows/deploy-web.yml"
+  # Lets you test the FIREBASE_SERVICE_ACCOUNT secret from the Actions
+  # tab's "Run workflow" button, without waiting for a real code change to
+  # push.
   workflow_dispatch: {}
 
-permissions:
-  contents: read
-  id-token: write
-
+# A newer push supersedes an in-flight deploy of the same branch.
 concurrency:
   group: deploy-web-${{ github.ref }}
   cancel-in-progress: true
@@ -32,13 +61,17 @@ jobs:
         with:
           node-version: "22"
 
-      - id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: projects/134216388127/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-actions-deploy@moviemate-prod-2026.iam.gserviceaccount.com
+      # firebase-tools auto-detects GOOGLE_APPLICATION_CREDENTIALS and
+      # authenticates as this service account — no --token/FIREBASE_TOKEN
+      # needed, and no deprecation warning either.
+      - name: Write the service account key to a file
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/gcp-key.json"
 
       - name: Deploy Firestore rules and Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-key.json
         run: |
           npx firebase-tools@latest deploy \
             --only firestore:rules,hosting \

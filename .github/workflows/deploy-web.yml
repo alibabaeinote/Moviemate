@@ -1,0 +1,53 @@
+name: Deploy web (Firebase Hosting + Firestore rules)
+
+# Automates the manual "npx firebase-tools deploy" step this project has
+# been running by hand from Cloud Shell after every web/firestore.rules
+# change. Scoped to this branch on purpose — it's the one actually being
+# tested against moviemate-prod-2026 right now. If/when this work merges
+# to the repo's default branch, update the branch filter below (or add it
+# alongside) rather than deploying from every branch pushed to.
+#
+# Requires a repo secret named FIREBASE_TOKEN — see the README note this
+# commit adds under web/README.md's "Deploying it for real" section for
+# how to generate one.
+
+on:
+  push:
+    branches: ["claude/movie-matching-suggestion-w6ot7v"]
+    paths:
+      - "web/**"
+      - "firestore.rules"
+      - "firestore.indexes.json"
+      - "firebase.json"
+      - ".github/workflows/deploy-web.yml"
+
+# A newer push supersedes an in-flight deploy of the same branch.
+concurrency:
+  group: deploy-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Firebase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # firebase-tools warns that FIREBASE_TOKEN (from `firebase login:ci`)
+      # is deprecated in favor of a service-account key, but it still works
+      # as of this writing and needs far less one-time setup than wiring up
+      # a service account — the simpler path for a two-person project.
+      # If Firebase ever actually removes it, switch this step to
+      # google-github-actions/auth with a service-account JSON secret
+      # instead.
+      - name: Deploy Firestore rules and Hosting
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          npx firebase-tools@latest deploy \
+            --only firestore:rules,hosting \
+            --project moviemate-prod-2026 \
+            --non-interactive

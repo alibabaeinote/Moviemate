@@ -77,6 +77,23 @@ show up" across more than one deploy. This app is a handful of small
 files with no meaningful CDN-cost concern, so always revalidating is the
 right trade here.
 
+### Deploying it automatically instead
+
+`.github/workflows/deploy-web.yml` runs the same deploy on every push
+that touches `web/`, `firestore.rules`, `firestore.indexes.json` or
+`firebase.json` — no more doing this by hand from Cloud Shell after
+every fix. It needs one repo secret, generated once:
+
+```
+firebase login:ci
+```
+
+This opens a browser login and prints a token. Add it to the repo as
+**Settings → Secrets and variables → Actions → New repository secret**,
+named `FIREBASE_TOKEN`, value the printed token. From then on, a push to
+the branch the workflow watches deploys itself within a few minutes —
+check the Actions tab for its progress or failures.
+
 ## Before pairing or onboarding films will work: a TMDB API key
 
 `createPair`/`joinPair`/`listGenres`/`getOnboardingFilms` are Cloud

@@ -168,6 +168,40 @@
     <div class="status" id="matchStatus"></div>
   </div>
 
+  <script>
+    // app.js imports the Firebase SDK straight from www.gstatic.com. If a
+    // tester's network can't reach it (blocked, filtered, a flaky captive
+    // portal — anything short of a full outage), that import throws before
+    // any of app.js's own code runs: no event listeners get attached, so
+    // "Continue with Google" sits there doing precisely nothing, with no
+    // error anywhere a normal user would look. That silent failure is what
+    // sent us chasing this for days. This plain (non-module) script runs
+    // regardless of whether app.js ever loads, and turns that silence into
+    // a message on the page itself.
+    window.addEventListener(
+      "error",
+      (e) => {
+        if (!e.filename || !e.filename.includes("gstatic.com")) return;
+        showLoadFailure("Couldn't load Google Sign-In — your connection to Google's services may be blocked.");
+      },
+      true,
+    );
+    function showLoadFailure(message) {
+      const status = document.getElementById("status");
+      if (status && !window.__mmAppJsLoaded) {
+        status.textContent = message;
+        status.style.display = "block";
+        status.style.color = "#c0392b";
+      }
+    }
+    setTimeout(() => {
+      if (!window.__mmAppJsLoaded) {
+        showLoadFailure(
+          "Sign-in is taking unusually long to load. If this doesn't finish, your network may be blocking Google — try a different network or a VPN.",
+        );
+      }
+    }, 6000);
+  </script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

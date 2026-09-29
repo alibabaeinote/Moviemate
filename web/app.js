@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/fireba
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   signOut,
@@ -34,6 +33,10 @@ import { advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRati
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// Tells the watchdog inline script in index.html that this module actually
+// finished loading and ran — see the comment there for why that matters.
+window.__mmAppJsLoaded = true;
 
 // Mirrors OnboardingConfig.kt — the client only decides UX (how many genres
 // before "Start rating" enables, how big a deck to ask for); the server is
@@ -402,31 +405,29 @@ onAuthStateChanged(auth, (user) => {
   watchUserDoc(user.uid);
 });
 
-// Mobile browsers (Safari on iOS especially) frequently tear down the
-// signInWithPopup window before the OAuth round trip finishes — Firebase
-// surfaces that as auth/popup-closed-by-user even though the person never
-// touched anything. signInWithRedirect sidesteps the popup entirely (full
-// navigation to Google and back), which is Firebase's own recommendation
-// for mobile web. Desktop keeps the popup: it's the nicer UX there and
-// doesn't have this failure mode.
-const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
+// signInWithPopup used to be desktop-only here (redirect was mobile-only,
+// since Firebase itself recommends redirect for mobile web). Dropped the
+// popup path entirely: it depends on a same-origin auth iframe, third-party
+// storage access, and window.open all working, and on at least one real
+// deployment every one of those testers hit a "Continue with Google" that
+// did absolutely nothing — no popup, no console error, no redirect — which
+// is exactly the failure signature of a popup silently getting blocked or
+// its iframe silently failing to load, with Firebase surfacing nothing.
+// signInWithRedirect is a full top-level navigation: there's no popup to
+// block and no iframe to fail invisibly, so a failure becomes something a
+// user (or the console) can actually see, on every platform.
 els.signInBtn.addEventListener("click", async () => {
+  console.log("[moviemate] Continue with Google clicked");
   showStatus(els.status, "", false);
   els.signInBtn.disabled = true;
   els.signInBtn.textContent = "Opening Google sign-in…";
   try {
-    if (isMobileBrowser) {
-      // Navigates away; the result is picked up by getRedirectResult()
-      // below once Google sends the browser back here.
-      await signInWithRedirect(auth, new GoogleAuthProvider());
-      return;
-    }
-    const result = await signInWithPopup(auth, new GoogleAuthProvider());
-    await ensureUserDocument(result.user);
+    // Navigates away; the result is picked up by getRedirectResult() below
+    // once Google sends the browser back here.
+    await signInWithRedirect(auth, new GoogleAuthProvider());
   } catch (err) {
+    console.error("[moviemate] signInWithRedirect failed", err);
     showStatus(els.status, permissionHint(err) || `Sign-in failed: ${err.message}`, true);
-  } finally {
     els.signInBtn.disabled = false;
     els.signInBtn.textContent = "Continue with Google";
   }
@@ -438,9 +439,11 @@ els.signInBtn.addEventListener("click", async () => {
 getRedirectResult(auth)
   .then(async (result) => {
     if (!result) return;
+    console.log("[moviemate] getRedirectResult returned a user", result.user.uid);
     await ensureUserDocument(result.user);
   })
   .catch((err) => {
+    console.error("[moviemate] getRedirectResult failed", err);
     showStatus(els.status, permissionHint(err) || `Sign-in failed: ${err.message}`, true);
   });
 

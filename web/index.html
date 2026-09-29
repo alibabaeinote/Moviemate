@@ -169,20 +169,21 @@
   </div>
 
   <script>
-    // app.js imports the Firebase SDK straight from www.gstatic.com. If a
-    // tester's network can't reach it (blocked, filtered, a flaky captive
-    // portal — anything short of a full outage), that import throws before
-    // any of app.js's own code runs: no event listeners get attached, so
-    // "Continue with Google" sits there doing precisely nothing, with no
-    // error anywhere a normal user would look. That silent failure is what
-    // sent us chasing this for days. This plain (non-module) script runs
-    // regardless of whether app.js ever loads, and turns that silence into
-    // a message on the page itself.
+    // app.js and firebase-bundle.js are both served from this same domain
+    // now (see firebase-bundle.js's own top comment for why — it used to be
+    // an import straight from www.gstatic.com, which turned out to be
+    // unreachable on at least one real deployment). A same-origin load
+    // failure should be rare, but if it (or any other error) stops app.js
+    // from ever finishing, every one of its event listeners — including
+    // "Continue with Google" — silently never gets attached, with nothing a
+    // normal user would recognize as an error. This plain (non-module)
+    // script runs regardless of whether app.js loads, and turns that
+    // silence into a message on the page itself.
     window.addEventListener(
       "error",
       (e) => {
-        if (!e.filename || !e.filename.includes("gstatic.com")) return;
-        showLoadFailure("Couldn't load Google Sign-In — your connection to Google's services may be blocked.");
+        if (!e.filename || !e.filename.includes(location.origin)) return;
+        showLoadFailure("This page didn't finish loading correctly — try reloading.");
       },
       true,
     );
@@ -196,9 +197,7 @@
     }
     setTimeout(() => {
       if (!window.__mmAppJsLoaded) {
-        showLoadFailure(
-          "Sign-in is taking unusually long to load. If this doesn't finish, your network may be blocking Google — try a different network or a VPN.",
-        );
+        showLoadFailure("This page is taking unusually long to load — try reloading, or check your connection.");
       }
     }, 6000);
   </script>

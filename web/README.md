@@ -36,6 +36,33 @@ Open `http://localhost:5000`. (Any static server works — `npx serve` is
 fine too. Opening `index.html` directly via `file://` will NOT work;
 Firebase Auth's popup flow requires a real http(s) origin.)
 
+## The Firebase SDK is vendored, not loaded from a CDN
+
+`app.js` and `match.js` import Firebase from `./firebase-bundle.js`, a
+committed, pre-built file — not from `https://www.gstatic.com/firebasejs/...`
+the way most Firebase quickstarts do it. That CDN host turned out to be
+unreachable on at least one real deployment (not `accounts.google.com`
+itself, just that one asset host), which meant the SDK import threw before
+any of this client's own code ever ran: every event listener, including
+"Continue with Google", silently never got attached. Serving the same npm
+`firebase` package from this app's own domain instead removes that single
+point of failure entirely.
+
+`firebase-bundle.js` is built from `vendor-src/firebase-entry.js` (the list
+of Firebase symbols this app actually uses) with esbuild:
+
+```
+cd web
+npm install   # once — pulls in firebase + esbuild as devDependencies
+npm run build:firebase
+```
+
+Run that again and commit the result whenever `vendor-src/firebase-entry.js`
+changes (a new symbol gets imported) or the pinned `firebase` version in
+`package.json` is bumped. There's no build step in CI — `deploy-web.yml`
+uploads `web/` as-is — so the bundle has to already be sitting in the repo,
+current, before a push.
+
 ## Before sign-in will actually work
 
 Two things still need to be deployed from the repo root, with the Firebase

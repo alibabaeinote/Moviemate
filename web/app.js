@@ -1,13 +1,19 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+// Bundled from npm's `firebase` package (see vendor-src/firebase-entry.js and
+// package.json's build:firebase script) and served from this same domain,
+// instead of importing Firebase's own CDN bundles from www.gstatic.com. That
+// CDN host turned out to be unreachable on at least one real deployment —
+// not accounts.google.com itself, just this one asset host — which meant
+// this whole import threw before any of the code below ever ran, and
+// "Continue with Google" did visibly nothing. See firebase-bundle.js's
+// source comment for the full story.
 import {
+  initializeApp,
   getAuth,
   GoogleAuthProvider,
   signInWithRedirect,
   getRedirectResult,
   signOut,
   onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {
   getFirestore,
   collection,
   doc,
@@ -25,7 +31,7 @@ import {
   arrayUnion,
   arrayRemove,
   Timestamp,
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+} from "./firebase-bundle.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { fetchFilmById, fetchGenres, fetchOnboardingFilms } from "./tmdb.js";
 import { advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRatingCount } from "./match.js";

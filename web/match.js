@@ -9,7 +9,7 @@ import {
   Timestamp,
   updateDoc,
   where,
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+} from "./firebase-bundle.js";
 import { fetchFilmsByIds, fetchMatchCandidates } from "./tmdb.js";
 import { ALGORITHM_CONFIG, advanceStreak, buildTasteProfile, rankCandidates } from "./match-engine.js";
 

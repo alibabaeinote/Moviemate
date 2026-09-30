@@ -31,10 +31,10 @@ import {
   arrayUnion,
   arrayRemove,
   Timestamp,
-} from "./firebase-bundle.js";
+} from "./firebase-bundle.js?v=2";
 import { firebaseConfig } from "./firebase-config.js";
 import { fetchFilmById, fetchGenres, fetchOnboardingFilms } from "./tmdb.js";
-import { advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRatingCount } from "./match.js";
+import { advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRatingCount } from "./match.js?v=2";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

@@ -104,6 +104,22 @@ show up" across more than one deploy. This app is a handful of small
 files with no meaningful CDN-cost concern, so always revalidating is the
 right trade here.
 
+`no-cache, must-revalidate` still only asks a client to revalidate — a
+mobile carrier's own transparent caching proxy, or a browser tab that was
+already open from before this header existed, can keep serving an old
+`app.js` regardless, since revalidation never happens if the request never
+reaches our server at all. That exact scenario is what silently undid the
+first Google-sign-in fix in this repo's history: a fresh `index.html` next
+to a stale, pre-fix `app.js`. `index.html`'s `<script src="app.js?v=2">`
+and the matching `?v=2` on `app.js`'s own `./match.js` and
+`./firebase-bundle.js` imports exist for exactly this: a changed query
+string is a brand new URL no cache anywhere could already have a copy of,
+which no amount of Cache-Control tuning can guarantee on its own. Bump that
+`?v=` number (on both the `<script>` tag and any import of a file you
+changed) whenever you edit `app.js`, `match.js`, or rebuild
+`firebase-bundle.js` — an ordinary reload is not enough to prove a fix
+landed until this is done.
+
 ### Deploying it automatically instead
 
 `.github/workflows/deploy-web.yml` runs the same deploy on every push

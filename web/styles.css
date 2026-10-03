@@ -353,3 +353,47 @@ h2 {
 .friend-remove:hover {
   color: var(--decorative);
 }
+
+/* ---------- confirm dialog ---------- */
+.btn-danger {
+  background: var(--decorative);
+  color: var(--on-fill);
+}
+.btn-danger:hover {
+  opacity: 0.9;
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 10;
+}
+.modal-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--raised);
+  border: 1.5px solid var(--hairline);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.modal-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.modal-actions button {
+  padding: 10px 18px;
+}

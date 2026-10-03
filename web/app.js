@@ -172,6 +172,11 @@ const els = {
   addFriendBtn: document.getElementById("addFriendBtn"),
   friendsStatus: document.getElementById("friendsStatus"),
 
+  confirmOverlay: document.getElementById("confirmOverlay"),
+  confirmText: document.getElementById("confirmText"),
+  confirmOkBtn: document.getElementById("confirmOkBtn"),
+  confirmCancelBtn: document.getElementById("confirmCancelBtn"),
+
   match: document.getElementById("match"),
   matchWaiting: document.getElementById("matchWaiting"),
   matchWaitingText: document.getElementById("matchWaitingText"),
@@ -220,6 +225,43 @@ function permissionHint(err) {
     return "This domain isn't in Firebase Auth's Authorized domains list yet — add it under Authentication → Settings → Authorized domains.";
   }
   return null;
+}
+
+/**
+ * Replaces window.confirm for destructive actions — a native browser confirm
+ * looks like a security warning, not part of the app, and can't be styled.
+ * Resolves true/false; never rejects.
+ */
+function confirmDialog(message, confirmLabel) {
+  return new Promise((resolve) => {
+    els.confirmText.textContent = message;
+    els.confirmOkBtn.textContent = confirmLabel || "Confirm";
+    els.confirmOverlay.hidden = false;
+    const cleanup = (result) => {
+      els.confirmOverlay.hidden = true;
+      els.confirmOkBtn.removeEventListener("click", onOk);
+      els.confirmCancelBtn.removeEventListener("click", onCancel);
+      resolve(result);
+    };
+    const onOk = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    els.confirmOkBtn.addEventListener("click", onOk);
+    els.confirmCancelBtn.addEventListener("click", onCancel);
+  });
+}
+
+/**
+ * Guarantees a promise either settles or reports a clear, specific timeout
+ * error within `ms` — a Firestore call that silently never resolves (a bad
+ * network, a dropped connection) would otherwise leave the UI stuck on a
+ * "Removing…"-style status forever, with no way to tell the difference
+ * between "still working" and "will never finish."
+ */
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms)),
+  ]);
 }
 
 /* ============================================================
@@ -1510,8 +1552,9 @@ els.friendsList.addEventListener("click", async (event) => {
     const pairId = removeBtn.dataset.removePair;
     const entry = fsPairs.get(pairId);
     const name = entry?.pair ? friendDisplayName(auth.currentUser.uid, entry.pair) : "this friend";
-    const confirmed = window.confirm(
-      `Remove ${name} and delete everything you've rated and matched together? This can't be undone.`
+    const confirmed = await confirmDialog(
+      `Remove ${name} and delete everything you've rated and matched together? This can't be undone.`,
+      "Remove",
     );
     if (confirmed) removeFriend(pairId);
   }
@@ -1538,22 +1581,28 @@ async function deleteSubcollection(colRef) {
 async function removeFriend(pairId) {
   showStatus(els.friendsStatus, "Removing…", false);
   try {
-    await deleteSubcollection(collection(db, "pairs", pairId, "ratings"));
-    await deleteSubcollection(collection(db, "pairs", pairId, "matches"));
-    await deleteSubcollection(collection(db, "pairs", pairId, "watchlist"));
-    await deleteDoc(doc(db, "pairs", pairId));
+    await withTimeout(
+      (async () => {
+        await deleteSubcollection(collection(db, "pairs", pairId, "ratings"));
+        console.log("[moviemate] removeFriend: ratings deleted", pairId);
+        await deleteSubcollection(collection(db, "pairs", pairId, "matches"));
+        console.log("[moviemate] removeFriend: matches deleted", pairId);
+        await deleteSubcollection(collection(db, "pairs", pairId, "watchlist"));
+        console.log("[moviemate] removeFriend: watchlist deleted", pairId);
+        await deleteDoc(doc(db, "pairs", pairId));
+        console.log("[moviemate] removeFriend: pair doc deleted", pairId);
+        stopWatchingFriend(pairId);
+        const updates = { pairIds: arrayRemove(pairId) };
+        if (latestUserData?.activePairId === pairId) updates.activePairId = null;
+        await updateDoc(doc(db, "users", auth.currentUser.uid), updates);
+        console.log("[moviemate] removeFriend: user doc updated", pairId);
+      })(),
+      15000,
+      "Removing this friend",
+    );
+    showStatus(els.friendsStatus, "Removed.", false);
   } catch (err) {
+    console.error("[moviemate] removeFriend failed", pairId, err);
     showStatus(els.friendsStatus, permissionHint(err) || `Couldn't remove: ${err.message}`, true);
-    return;
   }
-  stopWatchingFriend(pairId);
-  const updates = { pairIds: arrayRemove(pairId) };
-  if (latestUserData?.activePairId === pairId) updates.activePairId = null;
-  try {
-    await updateDoc(doc(db, "users", auth.currentUser.uid), updates);
-  } catch (err) {
-    showStatus(els.friendsStatus, permissionHint(err) || err.message, true);
-    return;
-  }
-  showStatus(els.friendsStatus, "Removed.", false);
 }

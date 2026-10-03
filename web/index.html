@@ -211,6 +211,16 @@
       }
     }, 6000);
   </script>
-  <script type="module" src="app.js?v=6"></script>
+  <div class="modal-overlay" id="confirmOverlay" hidden>
+    <div class="modal-card">
+      <p class="modal-text" id="confirmText"></p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="confirmCancelBtn" type="button">Cancel</button>
+        <button class="btn-danger" id="confirmOkBtn" type="button">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js?v=7"></script>
 </body>
 </html>

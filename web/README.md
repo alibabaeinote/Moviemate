@@ -144,7 +144,7 @@ already open from before this header existed, can keep serving an old
 `app.js` regardless, since revalidation never happens if the request never
 reaches our server at all. That exact scenario is what silently undid the
 first Google-sign-in fix in this repo's history: a fresh `index.html` next
-to a stale, pre-fix `app.js`. `index.html`'s `<script src="app.js?v=6">`
+to a stale, pre-fix `app.js`. `index.html`'s `<script src="app.js?v=9">`
 and the matching `?v=4` on `app.js`'s own imports of `./match.js`,
 `./firebase-auth-entry.js` and `./firebase-firestore-entry.js` (plus
 `match.js`'s own import of the firestore entry file) exist for exactly

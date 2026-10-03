@@ -122,7 +122,6 @@ const els = {
   signedIn: document.getElementById("signedIn"),
   closeProfileBtn: document.getElementById("closeProfileBtn"),
   signInBtn: document.getElementById("signInBtn"),
-  signOutBtn: document.getElementById("signOutBtn"),
   saveBtn: document.getElementById("saveBtn"),
   nameInput: document.getElementById("nameInput"),
   avatar: document.getElementById("avatar"),
@@ -380,8 +379,18 @@ function showSection(name) {
   els.onboarding.hidden = name !== "onboarding";
   els.pairing.hidden = name !== "pairing";
   els.friends.hidden = name !== "friends";
-  els.match.hidden = name !== "match";
   els.signedIn.hidden = name !== "profile";
+  // Onboarding is a focused, one-way deck (same as Android — see the
+  // ROUTING comment above) with nowhere useful to navigate to mid-deck;
+  // the header's Friends/Sign out only invited exits from a flow that
+  // isn't meant to have any. Every other screen keeps it. (Not touched for
+  // name === null — that's the signed-out case, where onAuthStateChanged
+  // already hides the header itself.)
+  if (name !== null) els.appHeader.hidden = name === "onboarding";
+  // els.match is no longer a toggled "section" — it's inline content inside
+  // the friends list now (see expandMatchFor/collapseMatch below), shown or
+  // hidden on its own, nested inside #friends. Hiding #friends above
+  // already hides it too via normal CSS cascade when leaving this screen.
 }
 
 /**
@@ -476,9 +485,16 @@ async function enterPair(pairId) {
   await goToMatch(pairId);
 }
 
+/**
+ * Opens tonight's match for a specific friend — inline, inside their own row
+ * in the Friends list (see expandMatchFor below), never a separate screen.
+ * "Waiting for your partner" used to be a dead-end-looking standalone card;
+ * this way it's always visibly still part of home.
+ */
 async function goToMatch(pairId) {
-  showSection("match");
   if (!pairId) return;
+  showSection("friends");
+  initFriendsSection();
   if (latestUserData?.activePairId !== pairId) {
     try {
       await updateDoc(doc(db, "users", auth.currentUser.uid), { activePairId: pairId });
@@ -487,13 +503,49 @@ async function goToMatch(pairId) {
     }
   }
   const snap = await getDoc(doc(db, "pairs", pairId));
-  if (snap.exists()) initMatchSection(pairId, snap.data());
+  if (snap.exists()) expandMatchFor(pairId, snap.data());
 }
 
 function backToFriends() {
   stopMatchSection();
   showSection("friends");
   initFriendsSection();
+}
+
+/**
+ * Which friend's match panel is currently expanded inline in the Friends
+ * list, if any — read by renderFriendsList (to re-attach els.match after the
+ * row it belongs to gets rebuilt) and by expandMatchFor (to toggle it closed
+ * on a second click, accordion-style).
+ */
+let expandedMatchPairId = null;
+
+/**
+ * Shows tonight's match for `pairId` inline, directly under that friend's
+ * own row in the Friends list — never as a separate screen (see goToMatch's
+ * comment). els.match is a single shared element relocated to sit right
+ * after whichever row is expanded; clicking an already-expanded row's own
+ * button collapses it instead (same as a standard accordion). If that row
+ * doesn't exist in the DOM yet (its own Firestore snapshot hasn't arrived —
+ * e.g. right after finishing pairing, before initFriendsSection's listeners
+ * have populated anything), renderFriendsList's own re-attach step below
+ * picks it up the moment that row actually renders.
+ */
+function expandMatchFor(pairId, pair) {
+  if (expandedMatchPairId === pairId) {
+    collapseMatch();
+    return;
+  }
+  expandedMatchPairId = pairId;
+  els.match.hidden = false;
+  initMatchSection(pairId, pair);
+  renderFriendsList();
+}
+
+function collapseMatch() {
+  stopMatchSection();
+  expandedMatchPairId = null;
+  els.match.hidden = true;
 }
 
 async function watchUserDoc(uid) {
@@ -578,7 +630,6 @@ getRedirectResult(auth)
     showStatus(els.status, permissionHint(err) || `Sign-in failed: ${err.message}`, true);
   });
 
-els.signOutBtn.addEventListener("click", () => signOut(auth));
 els.headerSignOutBtn.addEventListener("click", () => signOut(auth));
 els.headerProfileBtn.addEventListener("click", showProfile);
 els.closeProfileBtn.addEventListener("click", closeProfile);
@@ -1209,8 +1260,10 @@ function initMatchSection(pairId, pair) {
     (snap) => {
       if (!snap.exists()) {
         // This friend was removed (by either side — see removeFriend) while
-        // their match section was open. Nothing left to show here.
-        backToFriends();
+        // their match panel was expanded. Nothing left to show here — the
+        // friends-list listener's own self-heal (see initFriendsSection)
+        // will also drop the row itself shortly.
+        collapseMatch();
         return;
       }
       mt.pair = snap.data();
@@ -1529,6 +1582,7 @@ function renderFriendsList() {
   els.friendsEmpty.hidden = rows.length > 0;
   if (rows.length === 0) {
     els.friendsList.innerHTML = "";
+    if (expandedMatchPairId) collapseMatch();
     return;
   }
 
@@ -1545,8 +1599,9 @@ function renderFriendsList() {
       const avatarUrl = friendAvatarUrl(uid, pair);
       const initial = escapeHtml((friendDisplayName(uid, pair) || "?").trim().charAt(0).toUpperCase() || "?");
       const avatarStyle = avatarUrl ? ` style="background-image:url(${escapeHtml(avatarUrl)})"` : "";
+      const expandedClass = pairId === expandedMatchPairId ? " is-expanded" : "";
       return `
-        <div class="friend-row" data-pair-id="${pairId}">
+        <div class="friend-row${expandedClass}" data-pair-id="${pairId}">
           <button type="button" class="friend-open" data-open-pair="${pairId}">
             <div class="avatar friend-avatar"${avatarStyle}>${avatarUrl ? "" : initial}</div>
             <div class="friend-info">
@@ -1558,6 +1613,20 @@ function renderFriendsList() {
         </div>`;
     })
     .join("");
+
+  // els.match is one shared element, relocated here rather than rebuilt —
+  // rebuilding the list above (innerHTML) just detached it from the DOM if
+  // it was previously inside a row, without destroying it or its listeners.
+  // Re-attach it after whichever row is currently expanded, every time this
+  // renders, so it survives any friend's status changing mid-expansion.
+  if (expandedMatchPairId) {
+    if (!decorated.some((row) => row.pairId === expandedMatchPairId)) {
+      collapseMatch();
+    } else {
+      const rowEl = els.friendsList.querySelector(`[data-pair-id="${expandedMatchPairId}"]`);
+      if (rowEl) rowEl.after(els.match);
+    }
+  }
 }
 
 els.friendsList.addEventListener("click", async (event) => {

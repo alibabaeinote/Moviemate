@@ -168,6 +168,18 @@ input[type="text"]:focus {
   outline: 2px solid var(--fill);
   outline-offset: 1px;
 }
+.btn-back {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 2px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.btn-back:hover {
+  color: var(--ink);
+}
 .profile-header {
   display: flex;
   align-items: center;
@@ -352,6 +364,20 @@ h2 {
 }
 .friend-remove:hover {
   color: var(--decorative);
+}
+.friend-row.is-expanded {
+  border-color: var(--accent-text);
+}
+
+/* ---------- inline match panel (expands under a friend row) ---------- */
+.match-panel {
+  background: var(--ground);
+  border: 1.5px solid var(--hairline);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* ---------- confirm dialog ---------- */

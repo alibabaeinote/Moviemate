@@ -13,6 +13,17 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <header class="app-header" id="appHeader" hidden>
+    <button type="button" class="header-profile" id="headerProfileBtn">
+      <div class="avatar avatar-sm" id="headerAvatar"></div>
+      <span class="header-name" id="headerName"></span>
+    </button>
+    <nav class="header-nav">
+      <button type="button" class="header-link" id="headerFriendsBtn">Friends</button>
+      <button type="button" class="header-link" id="headerSignOutBtn">Sign out</button>
+    </nav>
+  </header>
+
   <div class="card" id="signedOut">
     <h1>MOVIEMATE</h1>
     <p class="sub">One film a night, picked for both of you.</p>
@@ -29,6 +40,7 @@
   </div>
 
   <div class="card" id="signedIn" hidden>
+    <button class="btn-secondary" id="closeProfileBtn" type="button">← Back</button>
     <div class="profile-header">
       <div class="avatar" id="avatar"></div>
       <div>
@@ -90,7 +102,6 @@
       <p class="sub">Invite them with a code, or enter theirs.</p>
       <button class="btn-primary" id="getInviteBtn" type="button">Get an invite code</button>
       <button class="btn-secondary" id="showJoinBtn" type="button">I have a code</button>
-      <button class="btn-secondary" id="backToFriendsFromChoiceBtn" type="button" hidden>Back to friends</button>
     </div>
 
     <div id="pairingInvite" hidden>
@@ -119,7 +130,6 @@
   </div>
 
   <div class="card" id="match" hidden>
-    <button class="btn-secondary" id="backToFriendsBtn" type="button">← Friends</button>
     <div id="matchWaiting">
       <h2>Almost there</h2>
       <p class="sub" id="matchWaitingText">Waiting for your partner to finish rating their films.</p>
@@ -201,6 +211,6 @@
       }
     }, 6000);
   </script>
-  <script type="module" src="app.js?v=5"></script>
+  <script type="module" src="app.js?v=6"></script>
 </body>
 </html>

@@ -111,8 +111,16 @@ const DECK_SIZE = 20;
 const DEFAULT_SCORE = 50;
 
 const els = {
+  appHeader: document.getElementById("appHeader"),
+  headerProfileBtn: document.getElementById("headerProfileBtn"),
+  headerAvatar: document.getElementById("headerAvatar"),
+  headerName: document.getElementById("headerName"),
+  headerFriendsBtn: document.getElementById("headerFriendsBtn"),
+  headerSignOutBtn: document.getElementById("headerSignOutBtn"),
+
   signedOut: document.getElementById("signedOut"),
   signedIn: document.getElementById("signedIn"),
+  closeProfileBtn: document.getElementById("closeProfileBtn"),
   signInBtn: document.getElementById("signInBtn"),
   signOutBtn: document.getElementById("signOutBtn"),
   saveBtn: document.getElementById("saveBtn"),
@@ -149,7 +157,6 @@ const els = {
   getInviteBtn: document.getElementById("getInviteBtn"),
   showJoinBtn: document.getElementById("showJoinBtn"),
   backFromJoinBtn: document.getElementById("backFromJoinBtn"),
-  backToFriendsFromChoiceBtn: document.getElementById("backToFriendsFromChoiceBtn"),
   joinBtn: document.getElementById("joinBtn"),
   joinCodeInput: document.getElementById("joinCodeInput"),
   inviteCodeDisplay: document.getElementById("inviteCodeDisplay"),
@@ -166,7 +173,6 @@ const els = {
   friendsStatus: document.getElementById("friendsStatus"),
 
   match: document.getElementById("match"),
-  backToFriendsBtn: document.getElementById("backToFriendsBtn"),
   matchWaiting: document.getElementById("matchWaiting"),
   matchWaitingText: document.getElementById("matchWaitingText"),
   matchNotYet: document.getElementById("matchNotYet"),
@@ -301,13 +307,17 @@ async function ensureUserDocument(user) {
 }
 
 function renderAvatar(name, photoUrl) {
-  if (photoUrl) {
-    els.avatar.style.backgroundImage = `url(${photoUrl})`;
-    els.avatar.textContent = "";
-  } else {
-    els.avatar.style.backgroundImage = "none";
-    els.avatar.textContent = (name || "?").trim().charAt(0).toUpperCase() || "?";
+  const initial = (name || "?").trim().charAt(0).toUpperCase() || "?";
+  for (const avatarEl of [els.avatar, els.headerAvatar]) {
+    if (photoUrl) {
+      avatarEl.style.backgroundImage = `url(${photoUrl})`;
+      avatarEl.textContent = "";
+    } else {
+      avatarEl.style.backgroundImage = "none";
+      avatarEl.textContent = initial;
+    }
   }
+  els.headerName.textContent = (name || "").trim();
 }
 
 /* ============================================================
@@ -319,11 +329,33 @@ function renderAvatar(name, photoUrl) {
    the same way Android's screens do.
    ============================================================ */
 
+// Tracked so closeProfile() (below) knows where "back" actually goes —
+// profile is reachable from the header on any screen, not just one place.
+let currentSectionName = null;
+
 function showSection(name) {
+  currentSectionName = name;
   els.onboarding.hidden = name !== "onboarding";
   els.pairing.hidden = name !== "pairing";
   els.friends.hidden = name !== "friends";
   els.match.hidden = name !== "match";
+  els.signedIn.hidden = name !== "profile";
+}
+
+/**
+ * The profile card used to be a forced, momentary first screen after every
+ * sign-in (auto-hidden the instant routing decided where to actually go) —
+ * which meant there was no way back into it afterward short of signing out
+ * and back in. It's reachable from the header's avatar/name on any screen
+ * now, so it needs a real "back", not just an auto-hide.
+ */
+let sectionBeforeProfile = null;
+function showProfile() {
+  sectionBeforeProfile = currentSectionName;
+  showSection("profile");
+}
+function closeProfile() {
+  showSection(sectionBeforeProfile || "friends");
 }
 
 /**
@@ -361,14 +393,6 @@ async function migrateLegacyPairId(uid, data) {
 async function maybeDecideInitialRoute() {
   if (routeDecided || !latestUserData) return;
   routeDecided = true;
-  // The profile card (name + sign out) is only the very first, momentary
-  // step — it's for the one-time "here's how I want to be known to my
-  // friends" edit right after signing in, not a permanent header sitting
-  // above onboarding/pairing/friends/match. Hide it the instant routing
-  // lands somewhere; editing the name again is a "sign out and back in"
-  // affair for now, same as this client not having a separate profile
-  // screen yet.
-  els.signedIn.hidden = true;
 
   const pairIds = latestUserData.pairIds || [];
   if (pairIds.length === 0) {
@@ -388,7 +412,6 @@ async function maybeDecideInitialRoute() {
 /** Called by the onboarding/pairing screens themselves once they're done. */
 function goToPairing() {
   showSection("pairing");
-  els.backToFriendsFromChoiceBtn.hidden = !(latestUserData?.pairIds?.length > 0);
   showPairingView("choice");
 }
 
@@ -481,7 +504,7 @@ els.signInBtn.addEventListener("click", async () => {
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     els.signedOut.hidden = false;
-    els.signedIn.hidden = true;
+    els.appHeader.hidden = true;
     showSection(null);
     routeDecided = false;
     latestUserData = null;
@@ -492,7 +515,7 @@ onAuthStateChanged(auth, (user) => {
     return;
   }
   els.signedOut.hidden = true;
-  els.signedIn.hidden = false;
+  els.appHeader.hidden = false;
   els.email.textContent = user.email || "";
   renderAvatar(user.displayName, user.photoURL);
   watchUserDoc(user.uid);
@@ -514,6 +537,10 @@ getRedirectResult(auth)
   });
 
 els.signOutBtn.addEventListener("click", () => signOut(auth));
+els.headerSignOutBtn.addEventListener("click", () => signOut(auth));
+els.headerProfileBtn.addEventListener("click", showProfile);
+els.closeProfileBtn.addEventListener("click", closeProfile);
+els.headerFriendsBtn.addEventListener("click", backToFriends);
 
 els.saveBtn.addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -892,7 +919,6 @@ els.getInviteBtn.addEventListener("click", async () => {
 
 els.showJoinBtn.addEventListener("click", () => showPairingView("join"));
 els.backFromJoinBtn.addEventListener("click", () => showPairingView("choice"));
-els.backToFriendsFromChoiceBtn.addEventListener("click", backToFriends);
 
 els.copyInviteBtn.addEventListener("click", async () => {
   if (!pendingInviteCode) return;
@@ -1184,8 +1210,6 @@ async function runFindMatch(button, busyLabel, restLabel) {
     button.textContent = restLabel;
   }
 }
-
-els.backToFriendsBtn.addEventListener("click", backToFriends);
 
 els.findMatchBtn.addEventListener("click", () =>
   runFindMatch(els.findMatchBtn, "Finding something…", "Find tonight's movie")

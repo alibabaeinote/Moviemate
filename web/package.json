@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "build:firebase": "esbuild vendor-src/firebase-entry.js --bundle --format=esm --platform=browser --minify --outfile=firebase-bundle.js"
+    "build:firebase": "rm -f firebase-auth-entry.js firebase-firestore-entry.js firebase-shared-chunk-*.js && esbuild vendor-src/firebase-auth-entry.js vendor-src/firebase-firestore-entry.js --bundle --splitting --format=esm --platform=browser --minify --outdir=. --outbase=vendor-src --chunk-names=firebase-shared-chunk-[hash]"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

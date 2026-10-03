@@ -1,11 +1,26 @@
-// Bundled from npm's `firebase` package (see vendor-src/firebase-entry.js and
-// package.json's build:firebase script) and served from this same domain,
-// instead of importing Firebase's own CDN bundles from www.gstatic.com. That
-// CDN host turned out to be unreachable on at least one real deployment —
-// not accounts.google.com itself, just this one asset host — which meant
+// Bundled from npm's `firebase` package (see vendor-src/ and package.json's
+// build:firebase script) and served from this same domain, instead of
+// importing Firebase's own CDN bundles from www.gstatic.com — that CDN host
+// turned out to be unreachable on at least one real deployment, which meant
 // this whole import threw before any of the code below ever ran, and
-// "Continue with Google" did visibly nothing. See firebase-bundle.js's
-// source comment for the full story.
+// "Continue with Google" did visibly nothing.
+//
+// Split into two bundles (built together, with code-splitting, so they share
+// one copy of @firebase/app's internal registry — see package.json's
+// build:firebase script), loaded differently, for a second real problem the
+// first fix didn't solve: even same-origin, a combined bundle is ~400kb, and
+// on a slow/throttled connection that was itself enough to keep the page
+// stuck on this file's own "taking unusually long to load" watchdog message
+// — sign-in never became clickable. Firestore is ~2/3 of that weight and
+// isn't needed until after sign-in actually completes (a full page
+// round-trip through Google's own servers), so only the small auth+app
+// bundle (firebase-auth-entry.js, ~95kb + a ~36kb shared chunk) is a static
+// import here — "Continue with Google" is wired up as soon as that alone has
+// arrived. The Firestore bundle (firebase-firestore-entry.js, ~270kb) and
+// match.js (which needs it) load via a dynamic import() further down, right
+// after that button is already clickable — everything below that point was
+// already unusable before sign-in anyway, so nothing real is lost by it
+// arriving later.
 import {
   initializeApp,
   getAuth,
@@ -14,31 +29,12 @@ import {
   getRedirectResult,
   signOut,
   onAuthStateChanged,
-  getFirestore,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  deleteDoc,
-  limit,
-  orderBy,
-  query,
-  setDoc,
-  updateDoc,
-  onSnapshot,
-  serverTimestamp,
-  writeBatch,
-  arrayUnion,
-  arrayRemove,
-  Timestamp,
-} from "./firebase-bundle.js?v=2";
+} from "./firebase-auth-entry.js?v=4";
 import { firebaseConfig } from "./firebase-config.js";
 import { fetchFilmById, fetchGenres, fetchOnboardingFilms } from "./tmdb.js";
-import { advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRatingCount } from "./match.js?v=2";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
 
 // Tells the watchdog inline script in index.html that this module actually
 // finished loading and ran — see the comment there for why that matters.
@@ -391,26 +387,6 @@ function watchUserDoc(uid) {
   );
 }
 
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    els.signedOut.hidden = false;
-    els.signedIn.hidden = true;
-    showSection(null);
-    routeDecided = false;
-    latestUserData = null;
-    onboardingPairId = null;
-    if (unsubscribeUserDoc) unsubscribeUserDoc();
-    stopMatchSection();
-    stopWatchingAllFriends();
-    return;
-  }
-  els.signedOut.hidden = true;
-  els.signedIn.hidden = false;
-  els.email.textContent = user.email || "";
-  renderAvatar(user.displayName, user.photoURL);
-  watchUserDoc(user.uid);
-});
-
 // signInWithPopup used to be desktop-only here (redirect was mobile-only,
 // since Firebase itself recommends redirect for mobile web). Dropped the
 // popup path entirely: it depends on a same-origin auth iframe, third-party
@@ -437,6 +413,55 @@ els.signInBtn.addEventListener("click", async () => {
     els.signInBtn.disabled = false;
     els.signInBtn.textContent = "Continue with Google";
   }
+});
+
+// Everything below this line needs Firestore (or match.js, which needs it
+// too) — nothing above it does, which is exactly why "Continue with Google"
+// is wired up above this await rather than below it. A top-level await
+// pauses the rest of THIS module's evaluation, not the page: the sign-in
+// click handler above is already live. db is created here, once, and used
+// as a plain top-level const by every function defined further down.
+const {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  deleteDoc,
+  limit,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+  serverTimestamp,
+  writeBatch,
+  arrayUnion,
+  arrayRemove,
+  Timestamp,
+} = await import("./firebase-firestore-entry.js?v=4");
+const { advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRatingCount } =
+  await import("./match.js?v=4");
+const db = getFirestore(app);
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    els.signedOut.hidden = false;
+    els.signedIn.hidden = true;
+    showSection(null);
+    routeDecided = false;
+    latestUserData = null;
+    onboardingPairId = null;
+    if (unsubscribeUserDoc) unsubscribeUserDoc();
+    stopMatchSection();
+    stopWatchingAllFriends();
+    return;
+  }
+  els.signedOut.hidden = true;
+  els.signedIn.hidden = false;
+  els.email.textContent = user.email || "";
+  renderAvatar(user.displayName, user.photoURL);
+  watchUserDoc(user.uid);
 });
 
 // Completes the signInWithRedirect flow above once Google sends the

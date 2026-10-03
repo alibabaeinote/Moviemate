@@ -38,18 +38,48 @@ Firebase Auth's popup flow requires a real http(s) origin.)
 
 ## The Firebase SDK is vendored, not loaded from a CDN
 
-`app.js` and `match.js` import Firebase from `./firebase-bundle.js`, a
-committed, pre-built file — not from `https://www.gstatic.com/firebasejs/...`
-the way most Firebase quickstarts do it. That CDN host turned out to be
-unreachable on at least one real deployment (not `accounts.google.com`
-itself, just that one asset host), which meant the SDK import threw before
-any of this client's own code ever ran: every event listener, including
-"Continue with Google", silently never got attached. Serving the same npm
-`firebase` package from this app's own domain instead removes that single
-point of failure entirely.
+`app.js` and `match.js` import Firebase from two committed, pre-built files
+— not from `https://www.gstatic.com/firebasejs/...` the way most Firebase
+quickstarts do it. That CDN host turned out to be unreachable on at least
+one real deployment (not `accounts.google.com` itself, just that one asset
+host), which meant the SDK import threw before any of this client's own
+code ever ran: every event listener, including "Continue with Google",
+silently never got attached. Serving the same npm `firebase` package from
+this app's own domain instead removes that single point of failure
+entirely.
 
-`firebase-bundle.js` is built from `vendor-src/firebase-entry.js` (the list
-of Firebase symbols this app actually uses) with esbuild:
+That fix alone wasn't enough, though: even same-origin, a combined
+app+auth+firestore bundle is ~400kb, and on a slow or throttled connection
+that was itself enough to keep a tester stuck on this file's own "taking
+unusually long to load" watchdog message — the page never finished loading
+far enough for the sign-in button to even attach its click handler. So the
+bundle is split in two:
+
+- `firebase-auth-entry.js` (~95kb) — `initializeApp` + everything Auth needs.
+  `app.js` imports this one **statically**, at the top — it's the only thing
+  "Continue with Google" itself needs, so the button is wired up as soon as
+  this alone has downloaded.
+- `firebase-firestore-entry.js` (~270kb) — everything Firestore needs.
+  `app.js` loads this one with a **dynamic** `import()`, right after the
+  sign-in button is already wired up (`db` is created once that resolves,
+  and used as a plain top-level `const` by every function below that
+  point). Firestore isn't needed until after sign-in actually completes — a
+  full page round-trip through Google's own servers — so there's no reason
+  the button itself should wait on it. `match.js` needs Firestore too, so
+  it's imported the same dynamic way, from the same point in `app.js`.
+- `firebase-shared-chunk-<hash>.js` (~36kb) — `@firebase/app`'s own internals,
+  factored out automatically by esbuild's code-splitting so both halves above
+  import the *same* copy. Skipping this (building each half as a fully
+  separate, independent bundle) was tried first and genuinely breaks at
+  runtime, not just in theory: each bundle would carry its own disconnected
+  copy of `@firebase/app`'s internal service registry, so `getFirestore(app)`
+  fails with `Service firestore is not available` — the `app` object from one
+  bundle's `initializeApp` isn't recognized by the other bundle's `getFirestore`.
+  The two halves have to be built *together*, in one esbuild invocation, for
+  this chunk (and the shared module instance it gives both sides) to exist.
+
+All three are built from the two entry files in `vendor-src/` (the list of
+Firebase symbols each half actually uses) with esbuild:
 
 ```
 cd web
@@ -57,11 +87,15 @@ npm install   # once — pulls in firebase + esbuild as devDependencies
 npm run build:firebase
 ```
 
-Run that again and commit the result whenever `vendor-src/firebase-entry.js`
-changes (a new symbol gets imported) or the pinned `firebase` version in
-`package.json` is bumped. There's no build step in CI — `deploy-web.yml`
-uploads `web/` as-is — so the bundle has to already be sitting in the repo,
-current, before a push.
+The script deletes the previous `firebase-auth-entry.js` /
+`firebase-firestore-entry.js` / `firebase-shared-chunk-*.js` first — the
+chunk's filename is content-hashed, so a rebuild's hash usually differs from
+the last one, and `git status` afterward should show the old chunk file gone
+and a new one added, not both sitting side by side. Run this again and commit
+the result whenever a `vendor-src/firebase-*-entry.js` file changes (a new
+symbol gets imported) or the pinned `firebase` version in `package.json` is
+bumped. There's no build step in CI — `deploy-web.yml` uploads `web/` as-is —
+so these files have to already be sitting in the repo, current, before a push.
 
 ## Before sign-in will actually work
 
@@ -110,14 +144,15 @@ already open from before this header existed, can keep serving an old
 `app.js` regardless, since revalidation never happens if the request never
 reaches our server at all. That exact scenario is what silently undid the
 first Google-sign-in fix in this repo's history: a fresh `index.html` next
-to a stale, pre-fix `app.js`. `index.html`'s `<script src="app.js?v=2">`
-and the matching `?v=2` on `app.js`'s own `./match.js` and
-`./firebase-bundle.js` imports exist for exactly this: a changed query
-string is a brand new URL no cache anywhere could already have a copy of,
-which no amount of Cache-Control tuning can guarantee on its own. Bump that
-`?v=` number (on both the `<script>` tag and any import of a file you
-changed) whenever you edit `app.js`, `match.js`, or rebuild
-`firebase-bundle.js` — an ordinary reload is not enough to prove a fix
+to a stale, pre-fix `app.js`. `index.html`'s `<script src="app.js?v=4">`
+and the matching `?v=4` on `app.js`'s own imports of `./match.js`,
+`./firebase-auth-entry.js` and `./firebase-firestore-entry.js` (plus
+`match.js`'s own import of the firestore entry file) exist for exactly
+this: a changed query string is a brand new URL no cache anywhere could
+already have a copy of, which no amount of Cache-Control tuning can
+guarantee on its own. Bump that `?v=` number (on the `<script>` tag and
+every import of a file you changed) whenever you edit `app.js`, `match.js`,
+or rebuild either Firebase bundle — an ordinary reload is not enough to prove a fix
 landed until this is done.
 
 ### Deploying it automatically instead

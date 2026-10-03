@@ -190,6 +190,20 @@ failures. You can also trigger it by hand from there (Actions →
 "Deploy web..." → **Run workflow**) to test the secret without waiting
 for a real push.
 
+The workflow also writes `web/tmdb-config.js` before deploying (a real
+key from an optional `TMDB_API_KEY` secret, or the harmless placeholder
+if that secret isn't set) — this file is gitignored, so a fresh CI
+checkout never has it on its own. This isn't optional cosmetic
+polish: `app.js` statically imports `tmdb.js`, which statically imports
+this file, so a missing one 404s and fails that whole import chain —
+**`app.js` never finishes evaluating at all**, not even its first line.
+That's not a slow page or a partial failure, it's the entire script
+silently not running, "Continue with Google" included, despite having
+nothing to do with TMDB. This exact gap — this step not existing — was
+the real, sole reason every deploy from this workflow was a totally
+broken page, for as long as this workflow has existed, regardless of
+which other real bug was being fixed in `app.js` at the time.
+
 ## Before pairing or onboarding films will work: a TMDB API key
 
 `createPair`/`joinPair`/`listGenres`/`getOnboardingFilms` are Cloud

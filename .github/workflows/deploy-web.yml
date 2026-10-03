@@ -57,6 +57,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # web/tmdb-config.js is gitignored on purpose (web/README.md explains
+      # why — it's the real TMDB key, and this repo is public), so a fresh
+      # checkout here never has it. That's fine for a MANUAL deploy, run
+      # from whatever's on a developer's own disk after `cp
+      # tmdb-config.example.js tmdb-config.js` — but this workflow runs
+      # against a bare checkout, and app.js statically imports tmdb.js,
+      # which statically imports this file. Missing entirely, that import
+      # 404s, which fails the WHOLE module graph: app.js never finishes
+      # evaluating, not even its first line — so EVERY SINGLE PAST DEPLOY
+      # FROM THIS WORKFLOW shipped a page where nothing worked at all,
+      # including "Continue with Google", which has nothing to do with
+      # TMDB. That silent total failure, not any of the real-but-secondary
+      # bugs fixed in this file's git history (a CDN block, a huge bundle,
+      # a Safari-incompatible JS feature), is why every one of those fixes
+      # kept testing clean locally yet never actually worked once deployed
+      # — this step never existed before, so CI was always deploying a
+      # tmdb-config.js-less, totally broken app.js.
+      #
+      # Uses a real key from the optional TMDB_API_KEY secret if one's been
+      # added (see web/README.md), so onboarding/ratings also work on the
+      # deployed site; falls back to the harmless placeholder otherwise,
+      # which is enough on its own to make the import resolve and let
+      # everything that doesn't touch TMDB — sign-in included — work.
+      - name: Provide web/tmdb-config.js (a TMDB_API_KEY secret if set, else the placeholder)
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          if [ -n "$TMDB_API_KEY" ]; then
+            echo "export const TMDB_API_KEY = \"$TMDB_API_KEY\";" > web/tmdb-config.js
+          else
+            cp web/tmdb-config.example.js web/tmdb-config.js
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

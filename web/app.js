@@ -1410,7 +1410,26 @@ function initFriendsSection() {
         fsPairs.set(pairId, entry);
         renderFriendsList();
       },
-      (err) => showStatus(els.friendsStatus, permissionHint(err) || err.message, true)
+      (err) => {
+        // Firestore's rules engine throws when isPairMember() dereferences
+        // resource.data on a document that no longer exists, and that throw
+        // surfaces to the client as permission-denied — not a clean "not
+        // found". A pair this user just deleted (removeFriend) hits exactly
+        // this on its very next snapshot, so a stranger's genuine
+        // permission-denied and "this pair I'm listening to is simply gone
+        // now" are indistinguishable by error code alone. Since a listener
+        // only ever exists for a pairId already in this user's own
+        // pairIds, treating permission-denied here the same as !snap.exists()
+        // is safe: self-heal instead of leaving a stale id (and a scary,
+        // permanent-looking error) behind forever.
+        if (err?.code === "permission-denied") {
+          stopWatchingFriend(pairId);
+          selfHealRemovedPair(pairId);
+          renderFriendsList();
+          return;
+        }
+        showStatus(els.friendsStatus, permissionHint(err) || err.message, true);
+      }
     );
 
     const latestMatchQuery = query(

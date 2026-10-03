@@ -40,6 +40,68 @@ const auth = getAuth(app);
 // finished loading and ran — see the comment there for why that matters.
 window.__mmAppJsLoaded = true;
 
+// Firestore + match.js load lazily (see the dynamic import below, right
+// after the sign-in button is wired up) — these start undefined and get
+// assigned once that import resolves. Deliberately NOT top-level await:
+// that's an ES2022 module feature (Safari only got it in 15.4, released
+// March 2022), and on an older Safari it's a hard parse error for the
+// *entire* module — nothing in this file would run at all, including the
+// window.__mmAppJsLoaded line above, which is exactly the silent-failure
+// shape this project has already chased twice. An async IIFE assigning to
+// these plain `let`s works everywhere ES modules do. The two places that
+// can run before a user has clicked anything — watchUserDoc (from
+// onAuthStateChanged) and ensureUserDocument (from getRedirectResult) —
+// `await firestoreReady` first so they never touch these while still
+// undefined; every other use is behind a button click, by which point this
+// has always long since resolved.
+let db,
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  deleteDoc,
+  limit,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+  serverTimestamp,
+  writeBatch,
+  arrayUnion,
+  arrayRemove,
+  Timestamp,
+  advancePairStreak,
+  generateTodaysMatch,
+  isBothOnboarded,
+  onboardingRatingCount;
+
+const firestoreReady = (async () => {
+  ({
+    getFirestore,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    deleteDoc,
+    limit,
+    orderBy,
+    query,
+    setDoc,
+    updateDoc,
+    onSnapshot,
+    serverTimestamp,
+    writeBatch,
+    arrayUnion,
+    arrayRemove,
+    Timestamp,
+  } = await import("./firebase-firestore-entry.js?v=4"));
+  ({ advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRatingCount } =
+    await import("./match.js?v=4"));
+  db = getFirestore(app);
+})();
+
 // Mirrors OnboardingConfig.kt — the client only decides UX (how many genres
 // before "Start rating" enables, how big a deck to ask for); the server is
 // the authority on when onboarding actually counts as complete.
@@ -369,7 +431,8 @@ function backToFriends() {
   initFriendsSection();
 }
 
-function watchUserDoc(uid) {
+async function watchUserDoc(uid) {
+  await firestoreReady;
   if (unsubscribeUserDoc) unsubscribeUserDoc();
   unsubscribeUserDoc = onSnapshot(
     doc(db, "users", uid),
@@ -415,35 +478,6 @@ els.signInBtn.addEventListener("click", async () => {
   }
 });
 
-// Everything below this line needs Firestore (or match.js, which needs it
-// too) — nothing above it does, which is exactly why "Continue with Google"
-// is wired up above this await rather than below it. A top-level await
-// pauses the rest of THIS module's evaluation, not the page: the sign-in
-// click handler above is already live. db is created here, once, and used
-// as a plain top-level const by every function defined further down.
-const {
-  getFirestore,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  deleteDoc,
-  limit,
-  orderBy,
-  query,
-  setDoc,
-  updateDoc,
-  onSnapshot,
-  serverTimestamp,
-  writeBatch,
-  arrayUnion,
-  arrayRemove,
-  Timestamp,
-} = await import("./firebase-firestore-entry.js?v=4");
-const { advancePairStreak, generateTodaysMatch, isBothOnboarded, onboardingRatingCount } =
-  await import("./match.js?v=4");
-const db = getFirestore(app);
-
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     els.signedOut.hidden = false;
@@ -471,6 +505,7 @@ getRedirectResult(auth)
   .then(async (result) => {
     if (!result) return;
     console.log("[moviemate] getRedirectResult returned a user", result.user.uid);
+    await firestoreReady;
     await ensureUserDocument(result.user);
   })
   .catch((err) => {

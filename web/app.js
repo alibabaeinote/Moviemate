@@ -490,9 +490,18 @@ async function enterPair(pairId) {
  * in the Friends list (see expandMatchFor below), never a separate screen.
  * "Waiting for your partner" used to be a dead-end-looking standalone card;
  * this way it's always visibly still part of home.
+ *
+ * Token-guarded the same way renderMatchSection guards itself with
+ * mtRenderToken: a double-click/double-tap on a friend's row fires two
+ * overlapping calls here, each awaiting its own getDoc. Without this, the
+ * second call's expandMatchFor can land after the first's has already set
+ * expandedMatchPairId, misreading that as "already open" and toggling it
+ * straight back closed. Only the most recent call's result is allowed to act.
  */
+let goToMatchToken = 0;
 async function goToMatch(pairId) {
   if (!pairId) return;
+  const token = ++goToMatchToken;
   showSection("friends");
   initFriendsSection();
   if (latestUserData?.activePairId !== pairId) {
@@ -503,11 +512,19 @@ async function goToMatch(pairId) {
     }
   }
   const snap = await getDoc(doc(db, "pairs", pairId));
+  if (token !== goToMatchToken) return; // a newer goToMatch call superseded this one
   if (snap.exists()) expandMatchFor(pairId, snap.data());
 }
 
+/**
+ * collapseMatch(), not just stopMatchSection(): this is the header's "Friends"
+ * link, reachable from Profile/Pairing/Friends alike. Stopping only the
+ * listeners left the panel visibly expanded but frozen — its buttons (e.g.
+ * "I'm in") still fired real writes, with no listener left alive to ever
+ * reflect the result back in the UI.
+ */
 function backToFriends() {
-  stopMatchSection();
+  collapseMatch();
   showSection("friends");
   initFriendsSection();
 }
@@ -979,7 +996,7 @@ async function joinPairDirect(uid, inviteCode, name, avatarUrl) {
     pairIds: arrayUnion(pairId),
     activePairId: pairId,
   });
-  return { pairId, partnerUid: pair.userA };
+  return { pairId, partnerUid: pair.userA, partnerName: pair.userAName || "" };
 }
 
 els.getInviteBtn.addEventListener("click", async () => {
@@ -1030,7 +1047,7 @@ els.joinBtn.addEventListener("click", async () => {
   els.joinBtn.textContent = "Joining…";
   try {
     const user = auth.currentUser;
-    const { pairId } = await joinPairDirect(
+    const { pairId, partnerName } = await joinPairDirect(
       user.uid,
       inviteCode,
       latestUserData?.name || user.displayName || "",
@@ -1038,7 +1055,7 @@ els.joinBtn.addEventListener("click", async () => {
     );
     pendingPairId = pairId;
     await flushDraftIntoPair(pairId, user.uid);
-    els.partnerText.textContent = "You're paired up.";
+    els.partnerText.textContent = partnerName ? `You're paired with ${partnerName}.` : "You're paired up.";
     showPairingView("done");
   } catch (err) {
     showStatus(els.pairingStatus, permissionHint(err) || err.message, true);
@@ -1619,12 +1636,24 @@ function renderFriendsList() {
   // it was previously inside a row, without destroying it or its listeners.
   // Re-attach it after whichever row is currently expanded, every time this
   // renders, so it survives any friend's status changing mid-expansion.
+  // "Not in `decorated` yet" has two different causes that must NOT be
+  // treated the same: the friend was actually removed (pairId dropped from
+  // pairIds — collapse for real), vs. pairIds already includes it but its
+  // own Firestore snapshot just hasn't landed in fsPairs yet (most likely
+  // right after finishing pairing, when this pairId's listener was only
+  // just registered a few lines up in goToMatch). The second case used to
+  // also call collapseMatch(), silently tearing down the match listeners
+  // expandMatchFor had just created one line earlier — leaving the user on
+  // a bare friends list with no visible sign their match was ever opened.
   if (expandedMatchPairId) {
-    if (!decorated.some((row) => row.pairId === expandedMatchPairId)) {
+    if (!pairIds.includes(expandedMatchPairId)) {
       collapseMatch();
     } else {
       const rowEl = els.friendsList.querySelector(`[data-pair-id="${expandedMatchPairId}"]`);
       if (rowEl) rowEl.after(els.match);
+      // else: that row's own snapshot hasn't rendered yet — leave els.match
+      // and its listeners alone; the next renderFriendsList() call (fired by
+      // that snapshot arriving) will re-attach it correctly.
     }
   }
 }

@@ -379,6 +379,14 @@ h2 {
   flex-direction: column;
   gap: 16px;
 }
+/* .poster was sized to be the hero of its own full-screen card (onboarding's
+   deck). Reused as-is here it dominated the accordion — a full-width 4:5
+   poster inside a friend row pushed the rest of the friends list far down
+   the page. Capped to a size proportionate to a secondary, inline element. */
+.match-panel .poster {
+  max-width: 160px;
+  margin: 0 auto;
+}
 
 /* ---------- confirm dialog ---------- */
 .btn-danger {
